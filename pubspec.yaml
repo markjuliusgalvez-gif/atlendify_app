@@ -39,11 +39,20 @@ flutter:
     - assets/branding/
     - assets/images/
     - assets/sounds/
-  fonts:
-    - family: Roboto
-      fonts:
-        - asset: assets/fonts/Roboto-Regular.ttf
-        - asset: assets/fonts/Roboto-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Roboto-Bold.ttf
-          weight: 700
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icon_full.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/android_foreground.png"
+  monochrome_path: "assets/images/android_monochrome.png"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  color_dark: "#0E1116"
+  image: "assets/images/logo_mark.png"
+  android_12:
+    image: "assets/images/logo_mark.png"
+    color: "#FFFFFF"
+    color_dark: "#0E1116"
