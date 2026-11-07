@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'src/core/theme/app_theme.dart';
-import 'src/core/theme/theme_provider.dart';
+import 'src/core/theme/theme_provider.dart' show themeModeProvider, AppAnimatedTheme;
 import 'src/core/router/app_router.dart';
 
 void main() async {
@@ -23,6 +23,9 @@ class MyApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
       routerConfig: ref.watch(routerProvider),
+      builder: (context, child) {
+        return AppAnimatedTheme(child: child!);
+      },
     );
   }
 }

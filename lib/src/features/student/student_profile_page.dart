@@ -1,13 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/router/app_router.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../features/auth/auth_provider.dart';
 
-class StudentProfilePage extends ConsumerWidget {
+class StudentProfilePage extends ConsumerStatefulWidget {
   const StudentProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StudentProfilePage> createState() => _StudentProfilePageState();
+}
+
+class _StudentProfilePageState extends ConsumerState<StudentProfilePage> {
+  int _selectedIndex = 2;
+
+  void _onTabSelected(int index) {
+    setState(() => _selectedIndex = index);
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.studentHome);
+        break;
+      case 1:
+        context.go(AppRoutes.studentRecords);
+        break;
+      case 2:
+        // Profile - already here
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final session = authState is AuthAuthenticated ? authState.session : null;
 
@@ -47,7 +71,15 @@ class StudentProfilePage extends ConsumerWidget {
               ),
             )
           : const Center(child: Text('Not logged in')),
-      bottomNavigationBar: _buildBottomNav(context, 2),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onTabSelected,
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'My Records'),
+          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
+        ],
+      ),
     );
   }
 
@@ -94,20 +126,6 @@ class StudentProfilePage extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildBottomNav(BuildContext context, int currentIndex) {
-    return NavigationBar(
-      selectedIndex: currentIndex,
-      onDestinationSelected: (index) {
-        // Navigation handled by parent
-      },
-      destinations: const [
-        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-        NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'My Records'),
-        NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
-      ],
     );
   }
 }

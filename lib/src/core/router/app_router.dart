@@ -35,10 +35,14 @@ class AppRoutes {
   static const String adminSettings = '/admin/settings';
 }
 
+/// Provider to get auth state fresh for router redirect
+final _routerAuthStateProvider = Provider<AuthState>((ref) {
+  // This forces the router to re-evaluate redirect when auth state changes
+  return ref.watch(authProvider);
+});
+
 /// Router provider
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-
   return GoRouter(
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: true,
@@ -109,6 +113,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
+      // Get fresh auth state for redirect
+      final authState = ref.read(_routerAuthStateProvider);
       final isLoggedIn = authState is AuthAuthenticated;
       final matchedLocation = state.matchedLocation;
       final isGoingToLogin = matchedLocation == AppRoutes.login;

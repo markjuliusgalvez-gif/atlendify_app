@@ -5,8 +5,27 @@ import '../../core/theme/brand_colors.dart';
 import '../../core/router/app_router.dart';
 import '../../features/auth/auth_provider.dart';
 
+/// Clock interface for testability
+abstract class SplashClock {
+  Future<void> delay(Duration duration);
+  DateTime now();
+}
+
+class SystemSplashClock implements SplashClock {
+  @override
+  Future<void> delay(Duration duration) => Future.delayed(duration);
+
+  @override
+  DateTime now() => DateTime.now();
+}
+
 class SplashPage extends ConsumerStatefulWidget {
-  const SplashPage({super.key});
+  const SplashPage({
+    super.key,
+    this.clock,
+  });
+
+  final SplashClock? clock;
 
   @override
   ConsumerState<SplashPage> createState() => _SplashPageState();
@@ -14,12 +33,9 @@ class SplashPage extends ConsumerStatefulWidget {
 
 class _SplashPageState extends ConsumerState<SplashPage> with TickerProviderStateMixin {
   late AnimationController _markController;
-  late AnimationController _textController;
   late AnimationController _fadeOutController;
   late Animation<double> _markScale;
   late Animation<double> _markOpacity;
-  late Animation<double> _textSlide;
-  late Animation<double> _textOpacity;
   late Animation<double> _fadeOut;
 
   bool _initComplete = false;
@@ -33,10 +49,6 @@ class _SplashPageState extends ConsumerState<SplashPage> with TickerProviderStat
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    _textController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
     _fadeOutController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
@@ -48,12 +60,6 @@ class _SplashPageState extends ConsumerState<SplashPage> with TickerProviderStat
     _markOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _markController, curve: Curves.easeOutCubic),
     );
-    _textSlide = Tween<double>(begin: 12.0, end: 0.0).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeOutCubic),
-    );
-    _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeOutCubic),
-    );
     _fadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(parent: _fadeOutController, curve: Curves.easeInOut),
     );
@@ -64,16 +70,19 @@ class _SplashPageState extends ConsumerState<SplashPage> with TickerProviderStat
 
   Future<void> _checkInitialization() async {
     // Wait for auth state to be ready
-    await Future.delayed(const Duration(milliseconds: 100));
+    await (widget.clock ?? SystemSplashClock()).delay(const Duration(milliseconds: 100));
+    if (!mounted) return;
     _initComplete = true;
     _maybeNavigate();
   }
 
   void _startAnimation() async {
     await _markController.forward();
-    await _textController.forward();
-    await Future.delayed(const Duration(milliseconds: 500)); // Hold
+    if (!mounted) return;
+    await (widget.clock ?? SystemSplashClock()).delay(const Duration(milliseconds: 500)); // Hold
+    if (!mounted) return;
     await _fadeOutController.forward();
+    if (!mounted) return;
     _animationComplete = true;
     _maybeNavigate();
   }
@@ -97,7 +106,6 @@ class _SplashPageState extends ConsumerState<SplashPage> with TickerProviderStat
   @override
   void dispose() {
     _markController.dispose();
-    _textController.dispose();
     _fadeOutController.dispose();
     super.dispose();
   }
@@ -110,7 +118,7 @@ class _SplashPageState extends ConsumerState<SplashPage> with TickerProviderStat
     return Scaffold(
       backgroundColor: isDark ? BrandColors.darkBackground : Colors.white,
       body: AnimatedBuilder(
-        animation: Listenable.merge([_markController, _textController, _fadeOutController]),
+        animation: Listenable.merge([_markController, _fadeOutController]),
         builder: (context, child) {
           return Opacity(
             opacity: _fadeOut.value,
@@ -118,7 +126,7 @@ class _SplashPageState extends ConsumerState<SplashPage> with TickerProviderStat
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Logo mark
+                  // Logo mark only
                   ScaleTransition(
                     scale: _markScale,
                     child: FadeTransition(
@@ -129,27 +137,6 @@ class _SplashPageState extends ConsumerState<SplashPage> with TickerProviderStat
                           'assets/images/logo_mark.png',
                           width: 80,
                           height: 80,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Wordmark (full logo)
-                  SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.15),
-                      end: Offset.zero,
-                    ).animate(_textSlide),
-                    child: FadeTransition(
-                      opacity: _textOpacity,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: ColorFiltered(
-                          colorFilter: ColorFilter.mode(logoTint, BlendMode.srcIn),
-                          child: Image.asset(
-                            'assets/images/logo_full.png',
-                            width: 200,
-                            fit: BoxFit.contain,
-                          ),
                         ),
                       ),
                     ),

@@ -317,6 +317,21 @@ class UserRepository implements BaseRepository {
     );
     return (result.first['count'] as int) > 0;
   }
+
+  Future<int> updatePin(int userId, String pinHash, String pinSalt) async {
+    final db = await this.db;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return await db.update(
+      'users',
+      {
+        'pin_hash': pinHash,
+        'pin_salt': pinSalt,
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+  }
 }
 
 /// Student Repository

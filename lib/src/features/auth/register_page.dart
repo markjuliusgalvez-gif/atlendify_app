@@ -408,7 +408,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
 
   Widget _buildRoleButton(String label, bool isAdmin) {
     final selected = _isAdmin == isAdmin;
-    return Expanded(
+    return Flexible(
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,

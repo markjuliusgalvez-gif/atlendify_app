@@ -46,16 +46,16 @@ class ThemeModeNotifier extends StateNotifier<ThemeModePreference> {
 }
 
 /// A widget that wraps the app with theme animation support
-class AnimatedTheme extends ConsumerStatefulWidget {
+class AppAnimatedTheme extends ConsumerStatefulWidget {
   final Widget child;
 
-  const AnimatedTheme({super.key, required this.child});
+  const AppAnimatedTheme({super.key, required this.child});
 
   @override
-  ConsumerState<AnimatedTheme> createState() => _AnimatedThemeState();
+  ConsumerState<AppAnimatedTheme> createState() => _AppAnimatedThemeState();
 }
 
-class _AnimatedThemeState extends ConsumerState<AnimatedTheme> with TickerProviderStateMixin {
+class _AppAnimatedThemeState extends ConsumerState<AppAnimatedTheme> with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _crossFade;
   ThemeModePreference _previousMode = ThemeModePreference.system;

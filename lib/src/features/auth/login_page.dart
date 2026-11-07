@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/brand_colors.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/router/app_router.dart';
 import '../../features/auth/auth_provider.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/pin_service.dart';
+import '../../core/database/repositories.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -54,11 +55,145 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     // Navigation handled by router redirect
   }
 
+  Future<void> _handleAdminLogin() async {
+    final pinController = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Admin PIN Required'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your 4-digit admin PIN to access the admin dashboard'),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: pinController,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'PIN',
+                hintText: '****',
+                counterText: '',
+                prefixIcon: Icon(Icons.pin_outlined),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'PIN is required';
+                if (value.length != 4) return 'PIN must be 4 digits';
+                return null;
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (pinController.text.length == 4) {
+                Navigator.pop(context, pinController.text);
+              }
+            },
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null || result.isEmpty) return;
+
+    // Verify PIN against stored admin PIN
+    // First check if user is already logged in
+    final authState = ref.read(authProvider);
+    if (authState is AuthAuthenticated && authState.session.isAdmin) {
+      // Already logged in as admin, verify PIN
+      final user = authState.session.user;
+      if (user.pinHash == null || user.pinSalt == null) {
+        _showError('PIN not set up for this admin');
+        return;
+      }
+
+      final pinService = PinService();
+      final pinResult = await pinService.verifyPin(
+        enteredPin: result,
+        storedPinHash: user.pinHash!,
+        storedPinSalt: user.pinSalt!,
+      );
+
+      if (!pinResult.isSuccess) {
+        if (pinResult.lockedOutRemaining != null) {
+          _showError('Too many failed attempts. Try again in ${pinResult.lockedOutRemaining!.inSeconds} seconds.');
+        } else {
+          _showError('Incorrect PIN. ${pinResult.attemptsRemaining} attempts remaining.');
+        }
+        return;
+      }
+
+      if (mounted) {
+        context.go(AppRoutes.adminHome);
+      }
+      return;
+    }
+
+    // Not logged in - find admin user by email
+    final adminEmail = _emailController.text.trim();
+    if (adminEmail.isEmpty) {
+      _showError('Please enter your admin email first');
+      return;
+    }
+
+    final userRepo = UserRepository();
+    final adminUser = await userRepo.getByEmail(adminEmail);
+    if (adminUser == null || adminUser.role != 'admin') {
+      _showError('Admin account not found');
+      return;
+    }
+
+    if (adminUser.pinHash == null || adminUser.pinSalt == null) {
+      _showError('PIN not set up for this admin');
+      return;
+    }
+
+    final pinService = PinService();
+    final pinResult = await pinService.verifyPin(
+      enteredPin: result,
+      storedPinHash: adminUser.pinHash!,
+      storedPinSalt: adminUser.pinSalt!,
+    );
+
+    if (!pinResult.isSuccess) {
+      if (pinResult.lockedOutRemaining != null) {
+        _showError('Too many failed attempts. Try again in ${pinResult.lockedOutRemaining!.inSeconds} seconds.');
+      } else {
+        _showError('Incorrect PIN. ${pinResult.attemptsRemaining} attempts remaining.');
+      }
+      return;
+    }
+
+    // PIN verified - now login with password
+    // The password field is required for login; if empty, show error
+    final password = _passwordController.text;
+    if (password.isEmpty) {
+      _showError('Please enter your password');
+      return;
+    }
+
+    await ref.read(authProvider.notifier).login(
+      email: adminEmail,
+      password: password,
+    );
+
+    // Navigation handled by router redirect
+  }
+
+  void _showError(String message) {
+    setState(() => _errorMessage = message);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final logoTint = isDark ? BrandColors.logoTintDark : BrandColors.logoTintLight;
-
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -82,14 +217,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Logo mark
+                  // Logo full - responsive to prevent overflow
                   Center(
-                    child: ColorFiltered(
-                      colorFilter: ColorFilter.mode(logoTint, BlendMode.srcIn),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width - 48,
+                        maxHeight: 80,
+                      ),
                       child: Image.asset(
-                        'assets/images/logo_mark.png',
-                        width: 64,
-                        height: 64,
+                        'assets/images/logo_full.png',
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
@@ -174,7 +311,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
                         const SizedBox(height: 8),
 
-                        // Login button
+                        // Login button (Student)
                         FilledButton(
                           onPressed: _isLoading ? null : _handleLogin,
                           child: _isLoading
@@ -186,7 +323,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Sign In'),
+                              : const Text('Sign In as Student'),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Login as Admin button
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _handleAdminLogin,
+                          icon: const Icon(Icons.admin_panel_settings_outlined),
+                          label: const Text('Login as Admin'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            foregroundColor: Theme.of(context).colorScheme.primary,
+                            side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                          ),
                         ),
                         const SizedBox(height: 24),
 
