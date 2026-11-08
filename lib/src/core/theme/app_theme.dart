@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'brand_colors.dart';
+import 'design_tokens.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -8,10 +9,10 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: BrandColors.lightScheme,
       scaffoldBackgroundColor: BrandColors.lightBackground,
-      fontFamily: 'Roboto',
+      fontFamily: DesignTokens.fontFamilyPrimary,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: <TargetPlatform, PageTransitionsBuilder>{
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
@@ -23,155 +24,298 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: BrandColors.lightOutline, width: 1),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusCard),
+          side: BorderSide.none,
         ),
-        margin: const EdgeInsets.all(0),
+        margin: EdgeInsets.zero,
+        shadowColor: DesignTokens.lightCardShadows.first.color,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: BrandColors.primary,
           foregroundColor: BrandColors.onPrimary,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          minimumSize: const Size(double.infinity, 48),
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.space6,
+            vertical: DesignTokens.space3,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+          ),
+          textStyle: DesignTokens.labelLarge.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          minimumSize: const Size(0, DesignTokens.buttonHeight),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: BrandColors.primary,
           side: const BorderSide(color: BrandColors.primary, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          minimumSize: const Size(double.infinity, 48),
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.space5,
+            vertical: DesignTokens.space2,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+          ),
+          textStyle: DesignTokens.labelLarge.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          minimumSize: const Size(0, DesignTokens.buttonHeight),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: BrandColors.primary,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.space4,
+            vertical: DesignTokens.space2,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+          ),
+          textStyle: DesignTokens.labelLarge.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: BrandColors.lightSurface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space5,
+          vertical: DesignTokens.space4,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
           borderSide: const BorderSide(color: BrandColors.lightOutline, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
           borderSide: const BorderSide(color: BrandColors.lightOutline, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
           borderSide: const BorderSide(color: BrandColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
           borderSide: const BorderSide(color: BrandColors.absentRed, width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
           borderSide: const BorderSide(color: BrandColors.absentRed, width: 2),
         ),
-        labelStyle: const TextStyle(color: BrandColors.lightTextSecondary, fontSize: 14),
-        hintStyle: const TextStyle(color: BrandColors.lightTextSecondary, fontSize: 14),
-        errorStyle: const TextStyle(color: BrandColors.absentRed, fontSize: 12),
-        floatingLabelStyle: const TextStyle(color: BrandColors.primary, fontSize: 14),
+        labelStyle: DesignTokens.bodyMedium.copyWith(
+          color: BrandColors.lightTextSecondary,
+        ),
+        hintStyle: DesignTokens.bodyMedium.copyWith(
+          color: BrandColors.lightTextSecondary,
+        ),
+        errorStyle: DesignTokens.labelSmall.copyWith(
+          color: BrandColors.absentRed,
+        ),
+        floatingLabelStyle: DesignTokens.labelMedium.copyWith(
+          color: BrandColors.primary,
+        ),
+        floatingLabelAlignment: FloatingLabelAlignment.start,
       ),
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(fontSize: 57, fontWeight: FontWeight.w400, color: BrandColors.lightTextPrimary),
-        displayMedium: TextStyle(fontSize: 45, fontWeight: FontWeight.w400, color: BrandColors.lightTextPrimary),
-        displaySmall: TextStyle(fontSize: 36, fontWeight: FontWeight.w400, color: BrandColors.lightTextPrimary),
-        headlineLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w600, color: BrandColors.lightTextPrimary),
-        headlineMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: BrandColors.lightTextPrimary),
-        headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: BrandColors.lightTextPrimary),
-        titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: BrandColors.lightTextPrimary),
-        titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: BrandColors.lightTextPrimary),
-        titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: BrandColors.lightTextPrimary),
-        bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: BrandColors.lightTextPrimary),
-        bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: BrandColors.lightTextPrimary),
-        bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: BrandColors.lightTextSecondary),
-        labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: BrandColors.lightTextPrimary),
-      ),
-      appBarTheme: const AppBarTheme(
+      textTheme: _lightTextTheme,
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+        titleTextStyle: DesignTokens.headlineSmall.copyWith(
           color: BrandColors.lightTextPrimary,
+          fontWeight: FontWeight.w700,
         ),
-        iconTheme: IconThemeData(color: BrandColors.lightTextPrimary),
+        iconTheme: IconThemeData(
+          color: BrandColors.lightTextPrimary,
+          size: 24,
+        ),
+        actionsIconTheme: IconThemeData(
+          color: BrandColors.lightTextPrimary,
+          size: 24,
+        ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: BrandColors.lightSurface,
         selectedItemColor: BrandColors.primary,
         unselectedItemColor: BrandColors.lightTextSecondary,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
-        selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+        selectedLabelStyle: DesignTokens.labelSmall.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: DesignTokens.labelSmall.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        landscapeLayout: BottomNavigationBarLandscapeLayout.spread,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: BrandColors.lightSurface,
+        indicatorColor: BrandColors.primary.withValues(alpha: 0.12),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return DesignTokens.labelSmall.copyWith(
+              color: BrandColors.primary,
+              fontWeight: FontWeight.w600,
+            );
+          }
+          return DesignTokens.labelSmall.copyWith(
+            color: BrandColors.lightTextSecondary,
+            fontWeight: FontWeight.w500,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return IconThemeData(
+              color: BrandColors.primary,
+              size: 24,
+            );
+          }
+          return IconThemeData(
+            color: BrandColors.lightTextSecondary,
+            size: 24,
+          );
+        }),
+        height: DesignTokens.bottomBarHeight,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
       ),
       chipTheme: ChipThemeData(
         backgroundColor: BrandColors.lightOutline,
         selectedColor: BrandColors.primary.withValues(alpha: 0.12),
         disabledColor: BrandColors.lightOutline.withValues(alpha: 0.5),
-        labelStyle: const TextStyle(color: BrandColors.lightTextPrimary, fontSize: 13),
-        secondaryLabelStyle: const TextStyle(color: BrandColors.onPrimary, fontSize: 13),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-        side: const BorderSide(color: BrandColors.lightOutline),
+        labelStyle: DesignTokens.labelMedium.copyWith(
+          color: BrandColors.lightTextPrimary,
+        ),
+        secondaryLabelStyle: DesignTokens.labelMedium.copyWith(
+          color: BrandColors.onPrimary,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space3,
+          vertical: DesignTokens.space1,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
+        ),
+        side: BorderSide.none,
+        pressElevation: 0,
+        selectedShadowColor: Colors.transparent,
       ),
-      dividerTheme: const DividerThemeData(
+      dividerTheme: DividerThemeData(
         color: BrandColors.lightOutline,
-        thickness: 1,
-        space: 1,
+        thickness: DesignTokens.dividerHeight,
+        space: DesignTokens.dividerHeight,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: BrandColors.lightSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        shadowColor: DesignTokens.lightFloatingShadows.first.color,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
           side: const BorderSide(color: BrandColors.lightOutline, width: 1),
         ),
-        titleTextStyle: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+        titleTextStyle: DesignTokens.headlineSmall.copyWith(
           color: BrandColors.lightTextPrimary,
+          fontWeight: FontWeight.w700,
         ),
-        contentTextStyle: const TextStyle(
-          fontSize: 14,
+        contentTextStyle: DesignTokens.bodyMedium.copyWith(
           color: BrandColors.lightTextPrimary,
         ),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
+      bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: BrandColors.lightSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        shadowColor: DesignTokens.lightFloatingShadows.first.color,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          side: BorderSide(color: BrandColors.lightOutline, width: 1),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(DesignTokens.radiusSheet),
+          ),
+          side: const BorderSide(color: BrandColors.lightOutline, width: 1),
         ),
         modalBarrierColor: Colors.black54,
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: BrandColors.darkSurface,
-        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+        contentTextStyle: DesignTokens.bodyMedium.copyWith(color: Colors.white),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusCard),
+        ),
         actionTextColor: BrandColors.primaryLight,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: BrandColors.primary,
+        foregroundColor: BrandColors.onPrimary,
+        elevation: 4,
+        focusElevation: 6,
+        hoverElevation: 6,
+        highlightElevation: 8,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusFloatingButton),
+        ),
+      ),
+      iconTheme: IconThemeData(
+        color: BrandColors.lightTextPrimary,
+        size: 24,
+      ),
+      primaryIconTheme: IconThemeData(
+        color: BrandColors.onPrimary,
+        size: 24,
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: BrandColors.primary,
+        unselectedLabelColor: BrandColors.lightTextSecondary,
+        indicatorColor: BrandColors.primary,
+        indicatorSize: TabBarIndicatorSize.label,
+        labelStyle: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+        unselectedLabelStyle: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w500),
+        dividerColor: Colors.transparent,
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: BrandColors.lightSurface,
+        hourMinuteTextColor: BrandColors.lightTextPrimary,
+        hourMinuteColor: BrandColors.lightBackground,
+        dialHandColor: BrandColors.primary,
+        dialBackgroundColor: BrandColors.lightBackground,
+        dayPeriodTextColor: BrandColors.lightTextSecondary,
+        dayPeriodColor: BrandColors.lightBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+        ),
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: BrandColors.lightSurface,
+        surfaceTintColor: Colors.transparent,
+        headerBackgroundColor: BrandColors.primary,
+        headerForegroundColor: Colors.white,
+        weekdayStyle: DesignTokens.labelMedium.copyWith(
+          color: BrandColors.lightTextSecondary,
+        ),
+        dayStyle: DesignTokens.bodyMedium.copyWith(
+          color: BrandColors.lightTextPrimary,
+        ),
+        todayBackgroundColor: WidgetStateProperty.all(
+          BrandColors.primary.withValues(alpha: 0.12),
+        ),
+        todayForegroundColor: WidgetStateProperty.all(BrandColors.primary),
+        rangePickerHeaderBackgroundColor: BrandColors.lightBackground,
+        rangePickerHeaderForegroundColor: BrandColors.lightTextPrimary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+        ),
       ),
     );
   }
@@ -181,10 +325,10 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: BrandColors.darkScheme,
       scaffoldBackgroundColor: BrandColors.darkBackground,
-      fontFamily: 'Roboto',
+      fontFamily: DesignTokens.fontFamilyPrimary,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: <TargetPlatform, PageTransitionsBuilder>{
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
@@ -196,156 +340,342 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusCard),
           side: const BorderSide(color: BrandColors.darkOutline, width: 1),
         ),
-        margin: const EdgeInsets.all(0),
+        margin: EdgeInsets.zero,
+        shadowColor: DesignTokens.darkCardShadows.first.color,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: BrandColors.primaryLight,
           foregroundColor: BrandColors.darkBackground,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          minimumSize: const Size(double.infinity, 48),
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.space6,
+            vertical: DesignTokens.space3,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+          ),
+          textStyle: DesignTokens.labelLarge.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          minimumSize: const Size(0, DesignTokens.buttonHeight),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: BrandColors.primaryLight,
           side: const BorderSide(color: BrandColors.primaryLight, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          minimumSize: const Size(double.infinity, 48),
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.space5,
+            vertical: DesignTokens.space2,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+          ),
+          textStyle: DesignTokens.labelLarge.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          minimumSize: const Size(0, DesignTokens.buttonHeight),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: BrandColors.primaryLight,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.space4,
+            vertical: DesignTokens.space2,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+          ),
+          textStyle: DesignTokens.labelLarge.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: BrandColors.darkSurface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space5,
+          vertical: DesignTokens.space4,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
           borderSide: const BorderSide(color: BrandColors.darkOutline, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
           borderSide: const BorderSide(color: BrandColors.darkOutline, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
           borderSide: const BorderSide(color: BrandColors.primaryLight, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
           borderSide: const BorderSide(color: Color(0xFFFF6B6B), width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
           borderSide: const BorderSide(color: Color(0xFFFF6B6B), width: 2),
         ),
-        labelStyle: const TextStyle(color: BrandColors.darkTextSecondary, fontSize: 14),
-        hintStyle: const TextStyle(color: BrandColors.darkTextSecondary, fontSize: 14),
-        errorStyle: const TextStyle(color: Color(0xFFFF6B6B), fontSize: 12),
-        floatingLabelStyle: const TextStyle(color: BrandColors.primaryLight, fontSize: 14),
+        labelStyle: DesignTokens.bodyMedium.copyWith(
+          color: BrandColors.darkTextSecondary,
+        ),
+        hintStyle: DesignTokens.bodyMedium.copyWith(
+          color: BrandColors.darkTextSecondary,
+        ),
+        errorStyle: DesignTokens.labelSmall.copyWith(
+          color: Color(0xFFFF6B6B),
+        ),
+        floatingLabelStyle: DesignTokens.labelMedium.copyWith(
+          color: BrandColors.primaryLight,
+        ),
+        floatingLabelAlignment: FloatingLabelAlignment.start,
       ),
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(fontSize: 57, fontWeight: FontWeight.w400, color: BrandColors.darkTextPrimary),
-        displayMedium: TextStyle(fontSize: 45, fontWeight: FontWeight.w400, color: BrandColors.darkTextPrimary),
-        displaySmall: TextStyle(fontSize: 36, fontWeight: FontWeight.w400, color: BrandColors.darkTextPrimary),
-        headlineLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w600, color: BrandColors.darkTextPrimary),
-        headlineMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: BrandColors.darkTextPrimary),
-        headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: BrandColors.darkTextPrimary),
-        titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: BrandColors.darkTextPrimary),
-        titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: BrandColors.darkTextPrimary),
-        titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: BrandColors.darkTextPrimary),
-        bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: BrandColors.darkTextPrimary),
-        bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: BrandColors.darkTextPrimary),
-        bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: BrandColors.darkTextSecondary),
-        labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: BrandColors.darkTextPrimary),
-      ),
-      appBarTheme: const AppBarTheme(
+      textTheme: _darkTextTheme,
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+        titleTextStyle: DesignTokens.headlineSmall.copyWith(
           color: BrandColors.darkTextPrimary,
+          fontWeight: FontWeight.w700,
         ),
-        iconTheme: IconThemeData(color: BrandColors.darkTextPrimary),
+        iconTheme: IconThemeData(
+          color: BrandColors.darkTextPrimary,
+          size: 24,
+        ),
+        actionsIconTheme: IconThemeData(
+          color: BrandColors.darkTextPrimary,
+          size: 24,
+        ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: BrandColors.darkSurface,
         selectedItemColor: BrandColors.primaryLight,
         unselectedItemColor: BrandColors.darkTextSecondary,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
-        selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+        selectedLabelStyle: DesignTokens.labelSmall.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: DesignTokens.labelSmall.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        landscapeLayout: BottomNavigationBarLandscapeLayout.spread,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: BrandColors.darkSurface,
+        indicatorColor: BrandColors.primaryLight.withValues(alpha: 0.15),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return DesignTokens.labelSmall.copyWith(
+              color: BrandColors.primaryLight,
+              fontWeight: FontWeight.w600,
+            );
+          }
+          return DesignTokens.labelSmall.copyWith(
+            color: BrandColors.darkTextSecondary,
+            fontWeight: FontWeight.w500,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return IconThemeData(
+              color: BrandColors.primaryLight,
+              size: 24,
+            );
+          }
+          return IconThemeData(
+            color: BrandColors.darkTextSecondary,
+            size: 24,
+          );
+        }),
+        height: DesignTokens.bottomBarHeight,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
       ),
       chipTheme: ChipThemeData(
         backgroundColor: BrandColors.darkOutline,
         selectedColor: BrandColors.primaryLight.withValues(alpha: 0.2),
         disabledColor: BrandColors.darkOutline.withValues(alpha: 0.5),
-        labelStyle: const TextStyle(color: BrandColors.darkTextPrimary, fontSize: 13),
-        secondaryLabelStyle: const TextStyle(color: BrandColors.darkBackground, fontSize: 13),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-        side: const BorderSide(color: BrandColors.darkOutline),
+        labelStyle: DesignTokens.labelMedium.copyWith(
+          color: BrandColors.darkTextPrimary,
+        ),
+        secondaryLabelStyle: DesignTokens.labelMedium.copyWith(
+          color: BrandColors.darkBackground,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space3,
+          vertical: DesignTokens.space1,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
+        ),
+        side: BorderSide.none,
+        pressElevation: 0,
+        selectedShadowColor: Colors.transparent,
       ),
-      dividerTheme: const DividerThemeData(
+      dividerTheme: DividerThemeData(
         color: BrandColors.darkOutline,
-        thickness: 1,
-        space: 1,
+        thickness: DesignTokens.dividerHeight,
+        space: DesignTokens.dividerHeight,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: BrandColors.darkSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        shadowColor: DesignTokens.darkFloatingShadows.first.color,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
           side: const BorderSide(color: BrandColors.darkOutline, width: 1),
         ),
-        titleTextStyle: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+        titleTextStyle: DesignTokens.headlineSmall.copyWith(
           color: BrandColors.darkTextPrimary,
+          fontWeight: FontWeight.w700,
         ),
-        contentTextStyle: const TextStyle(
-          fontSize: 14,
+        contentTextStyle: DesignTokens.bodyMedium.copyWith(
           color: BrandColors.darkTextPrimary,
         ),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
+      bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: BrandColors.darkSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        shadowColor: DesignTokens.darkFloatingShadows.first.color,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          side: BorderSide(color: BrandColors.darkOutline, width: 1),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(DesignTokens.radiusSheet),
+          ),
+          side: const BorderSide(color: BrandColors.darkOutline, width: 1),
         ),
         modalBarrierColor: Colors.black54,
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: BrandColors.darkSurface,
-        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+        contentTextStyle: DesignTokens.bodyMedium.copyWith(color: Colors.white),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusCard),
+        ),
         actionTextColor: BrandColors.primaryLight,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: BrandColors.primaryLight,
+        foregroundColor: BrandColors.darkBackground,
+        elevation: 4,
+        focusElevation: 6,
+        hoverElevation: 6,
+        highlightElevation: 8,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusFloatingButton),
+        ),
+      ),
+      iconTheme: IconThemeData(
+        color: BrandColors.darkTextPrimary,
+        size: 24,
+      ),
+      primaryIconTheme: IconThemeData(
+        color: BrandColors.darkBackground,
+        size: 24,
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: BrandColors.primaryLight,
+        unselectedLabelColor: BrandColors.darkTextSecondary,
+        indicatorColor: BrandColors.primaryLight,
+        indicatorSize: TabBarIndicatorSize.label,
+        labelStyle: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+        unselectedLabelStyle: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w500),
+        dividerColor: Colors.transparent,
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: BrandColors.darkSurface,
+        hourMinuteTextColor: BrandColors.darkTextPrimary,
+        hourMinuteColor: BrandColors.darkBackground,
+        dialHandColor: BrandColors.primaryLight,
+        dialBackgroundColor: BrandColors.darkBackground,
+        dayPeriodTextColor: BrandColors.darkTextSecondary,
+        dayPeriodColor: BrandColors.darkBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+        ),
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: BrandColors.darkSurface,
+        surfaceTintColor: Colors.transparent,
+        headerBackgroundColor: BrandColors.primaryLight,
+        headerForegroundColor: BrandColors.darkBackground,
+        weekdayStyle: DesignTokens.labelMedium.copyWith(
+          color: BrandColors.darkTextSecondary,
+        ),
+        dayStyle: DesignTokens.bodyMedium.copyWith(
+          color: BrandColors.darkTextPrimary,
+        ),
+        todayBackgroundColor: WidgetStateProperty.all(
+          BrandColors.primaryLight.withValues(alpha: 0.15),
+        ),
+        todayForegroundColor: WidgetStateProperty.all(BrandColors.primaryLight),
+        rangePickerHeaderBackgroundColor: BrandColors.darkBackground,
+        rangePickerHeaderForegroundColor: BrandColors.darkTextPrimary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+        ),
       ),
     );
   }
+
+  // =========================================================================
+  // TEXT THEMES
+  // =========================================================================
+  static TextTheme get _lightTextTheme => TextTheme(
+    displayLarge: DesignTokens.displayLarge,
+    displayMedium: DesignTokens.displayMedium,
+    headlineLarge: DesignTokens.headlineLarge,
+    headlineMedium: DesignTokens.headlineMedium,
+    headlineSmall: DesignTokens.headlineSmall,
+    titleLarge: DesignTokens.titleLarge,
+    titleMedium: DesignTokens.titleMedium,
+    titleSmall: DesignTokens.titleSmall,
+    bodyLarge: DesignTokens.bodyLarge,
+    bodyMedium: DesignTokens.bodyMedium,
+    bodySmall: DesignTokens.bodySmall,
+    labelLarge: DesignTokens.labelLarge,
+    labelMedium: DesignTokens.labelMedium,
+    labelSmall: DesignTokens.labelSmall,
+  ).apply(
+    bodyColor: BrandColors.lightTextPrimary,
+    displayColor: BrandColors.lightTextPrimary,
+  );
+
+  static TextTheme get _darkTextTheme => TextTheme(
+    displayLarge: DesignTokens.displayLarge,
+    displayMedium: DesignTokens.displayMedium,
+    headlineLarge: DesignTokens.headlineLarge,
+    headlineMedium: DesignTokens.headlineMedium,
+    headlineSmall: DesignTokens.headlineSmall,
+    titleLarge: DesignTokens.titleLarge,
+    titleMedium: DesignTokens.titleMedium,
+    titleSmall: DesignTokens.titleSmall,
+    bodyLarge: DesignTokens.bodyLarge,
+    bodyMedium: DesignTokens.bodyMedium,
+    bodySmall: DesignTokens.bodySmall,
+    labelLarge: DesignTokens.labelLarge,
+    labelMedium: DesignTokens.labelMedium,
+    labelSmall: DesignTokens.labelSmall,
+  ).apply(
+    bodyColor: BrandColors.darkTextPrimary,
+    displayColor: BrandColors.darkTextPrimary,
+  );
 }

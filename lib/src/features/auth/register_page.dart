@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/theme/brand_colors.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/router/app_router.dart';
 import '../../features/auth/auth_provider.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/widgets/pin_boxes.dart';
+import '../../core/widgets/shared_widgets.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -14,7 +17,7 @@ class RegisterPage extends ConsumerStatefulWidget {
   ConsumerState<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProviderStateMixin {
+class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _studentNumberController = TextEditingController();
@@ -27,31 +30,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
   bool _isAdmin = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _obscurePin = true;
-  bool _obscureConfirmPin = true;
   bool _isLoading = false;
   String? _errorMessage;
-
-  late AnimationController _slideController;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0.3, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-    );
-    _slideController.forward();
-  }
 
   @override
   void dispose() {
@@ -62,15 +42,38 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
     _confirmPasswordController.dispose();
     _pinController.dispose();
     _confirmPinController.dispose();
-    _slideController.dispose();
     super.dispose();
+  }
+
+  String? _pinError;
+  String? _confirmPinError;
+
+  void _validatePin(String pin) {
+    setState(() {
+      if (pin.length < 4) {
+        _pinError = 'PIN must be 4 digits';
+      } else {
+        _pinError = null;
+      }
+    });
+  }
+
+  void _validateConfirmPin(String pin) {
+    setState(() {
+      if (pin.length < 4) {
+        _confirmPinError = 'PIN must be 4 digits';
+      } else if (pin != _pinController.text) {
+        _confirmPinError = 'PINs do not match';
+      } else {
+        _confirmPinError = null;
+      }
+    });
   }
 
   void _onRoleChanged(bool isAdmin) {
     setState(() {
       _isAdmin = isAdmin;
     });
-    _slideController.forward(from: 0);
   }
 
   Future<void> _handleRegister() async {
@@ -105,30 +108,34 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
     final logoTint = isDark ? BrandColors.logoTintDark : BrandColors.logoTintLight;
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: bgColor,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(DesignTokens.space5), // Reduced from space6
           child: ConstrainedBox(
             constraints: BoxConstraints(
               minHeight: MediaQuery.of(context).size.height -
                   MediaQuery.of(context).padding.top -
                   MediaQuery.of(context).padding.bottom -
-                  48,
+                  DesignTokens.space8, // Reduced from space12
             ),
             child: IntrinsicHeight(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Theme toggle
                   Align(
                     alignment: Alignment.topRight,
                     child: ThemeToggleButton(),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: DesignTokens.space4), // Reduced from space6
 
                   // Logo mark
                   Center(
@@ -136,55 +143,56 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
                       colorFilter: ColorFilter.mode(logoTint, BlendMode.srcIn),
                       child: Image.asset(
                         'assets/images/logo_mark.png',
-                        width: 64,
+                        width: 64, // Reduced from 72
                         height: 64,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: DesignTokens.space6), // Reduced from space8
 
                   // Title
                   Text(
                     'Create account',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style: DesignTokens.headlineMedium.copyWith( // Reduced from headlineLarge
+                      color: textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: DesignTokens.space1), // Reduced from space2
                   Text(
                     'Join Atlendify to track attendance',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                    style: DesignTokens.bodySmall.copyWith( // Reduced from bodyMedium
+                      color: textSecondary,
+                    ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: DesignTokens.space6), // Reduced from space8
 
                   // Role selector
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                  SoftCard(
+                    isDark: isDark,
+                    padding: const EdgeInsets.all(DesignTokens.space2), // Reduced from space3
                     child: Row(
                       children: [
-                        _buildRoleButton('Student', false),
-                        _buildRoleButton('Admin', true),
+                        _buildRoleButton('Student', false, isDark, textPrimary, textSecondary),
+                        _buildRoleButton('Admin', true, isDark, textPrimary, textSecondary),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: DesignTokens.space5), // Reduced from space6
 
-                  // Form
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Full name (always shown)
-                        _buildAnimatedField(
-                          child: TextFormField(
+                  // Form card
+                  SoftCard(
+                    isDark: isDark,
+                    padding: const EdgeInsets.all(DesignTokens.space5), // Reduced from space6
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Full name (always shown)
+                          TextFormField(
                             controller: _fullNameController,
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
@@ -194,13 +202,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
                             ),
                             validator: NameValidator.validateName,
                           ),
-                        ),
-                        const SizedBox(height: 16),
+                          const SizedBox(height: DesignTokens.space3), // Reduced from space4
 
-                        // Student number (only for student)
-                        if (!_isAdmin)
-                          _buildAnimatedField(
-                            child: TextFormField(
+                          // Student number (only for student)
+                          if (!_isAdmin)
+                            TextFormField(
                               controller: _studentNumberController,
                               textInputAction: TextInputAction.next,
                               decoration: const InputDecoration(
@@ -209,16 +215,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
                                 prefixIcon: Icon(Icons.badge_outlined),
                               ),
                               validator: StudentNumberValidator.validateStudentNumber,
-                            ),
-                          )
-                        else
-                          const SizedBox.shrink(),
+                            )
+                          else
+                            const SizedBox.shrink(),
 
-                        if (!_isAdmin) const SizedBox(height: 16),
+                          if (!_isAdmin) const SizedBox(height: DesignTokens.space3), // Reduced from space4
 
-                        // Email
-                        _buildAnimatedField(
-                          child: TextFormField(
+                          // Email
+                          TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
@@ -229,12 +233,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
                             ),
                             validator: EmailValidator.validateEmail,
                           ),
-                        ),
-                        const SizedBox(height: 16),
+                          const SizedBox(height: DesignTokens.space3), // Reduced from space4
 
-                        // Password
-                        _buildAnimatedField(
-                          child: TextFormField(
+                          // Password
+                          TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
                             textInputAction: TextInputAction.next,
@@ -255,12 +257,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
                             ),
                             validator: PasswordValidator.validatePassword,
                           ),
-                        ),
-                        const SizedBox(height: 16),
+                          const SizedBox(height: DesignTokens.space3), // Reduced from space4
 
-                        // Confirm Password
-                        _buildAnimatedField(
-                          child: TextFormField(
+                          // Confirm Password
+                          TextFormField(
                             controller: _confirmPasswordController,
                             obscureText: _obscureConfirmPassword,
                             textInputAction: _isAdmin ? TextInputAction.next : TextInputAction.done,
@@ -283,118 +283,98 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
                                 PasswordValidator.validateConfirmPassword(_passwordController.text, value),
                             onFieldSubmitted: _isAdmin ? null : (_) => _handleRegister(),
                           ),
-                        ),
-                        const SizedBox(height: 16),
+                          const SizedBox(height: DesignTokens.space3), // Reduced from space4
 
-                        // PIN fields (only for admin)
-                        if (_isAdmin) ...[
-                          _buildAnimatedField(
-                            child: TextFormField(
-                              controller: _pinController,
-                              obscureText: _obscurePin,
-                              keyboardType: TextInputType.number,
-                              textInputAction: TextInputAction.next,
-                              maxLength: 4,
-                              decoration: InputDecoration(
-                                labelText: '4-Digit PIN',
-                                hintText: 'Create a PIN',
-                                prefixIcon: const Icon(Icons.pin_outlined),
-                                counterText: '',
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePin
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
+                          // PIN fields (only for admin)
+                          if (_isAdmin) ...[
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Create 4-digit PIN',
+                                  style: DesignTokens.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    color: textPrimary,
                                   ),
-                                  onPressed: () {
-                                    setState(() => _obscurePin = !_obscurePin);
-                                  },
                                 ),
-                              ),
-                              validator: PinValidator.validatePin,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildAnimatedField(
-                            child: TextFormField(
-                              controller: _confirmPinController,
-                              obscureText: _obscureConfirmPin,
-                              keyboardType: TextInputType.number,
-                              textInputAction: TextInputAction.done,
-                              maxLength: 4,
-                              decoration: InputDecoration(
-                                labelText: 'Confirm PIN',
-                                hintText: 'Re-enter PIN',
-                                prefixIcon: const Icon(Icons.pin_outlined),
-                                counterText: '',
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscureConfirmPin
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                  ),
-                                  onPressed: () {
-                                    setState(() => _obscureConfirmPin = !_obscureConfirmPin);
+                                const SizedBox(height: DesignTokens.space2),
+                                PinBoxes(
+                                  controller: _pinController,
+                                  disabled: _isLoading,
+                                  errorText: _pinError,
+                                  semanticLabel: 'PIN',
+                                  autofocus: false,
+                                  onSubmit: (_) {
+                                    FocusScope.of(context).nextFocus();
                                   },
+                                  onChanged: _validatePin,
                                 ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) return 'Please confirm your PIN';
-                                return PinValidator.validateConfirmPin(_pinController.text, value);
-                              },
-                              onFieldSubmitted: (_) => _handleRegister(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Error message
-                        if (_errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              _errorMessage!,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                                fontSize: 14,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-
-                        const SizedBox(height: 8),
-
-                        // Register button
-                        FilledButton(
-                          onPressed: _isLoading ? null : _handleRegister,
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
+                                const SizedBox(height: DesignTokens.space4),
+                                Text(
+                                  'Confirm PIN',
+                                  style: DesignTokens.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    color: textPrimary,
                                   ),
-                                )
-                              : const Text('Create Account'),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Login link
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Already have an account? ',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            TextButton(
-                              onPressed: () => context.go(AppRoutes.login),
-                              child: const Text('Sign in'),
+                                ),
+                                const SizedBox(height: DesignTokens.space2),
+                                PinBoxes(
+                                  controller: _confirmPinController,
+                                  disabled: _isLoading,
+                                  errorText: _confirmPinError,
+                                  semanticLabel: 'Confirm PIN',
+                                  autofocus: false,
+                                  onSubmit: (_) => _handleRegister(),
+                                  onChanged: _validateConfirmPin,
+                                ),
+                                const SizedBox(height: DesignTokens.space4),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
+
+                          // Error message
+                          if (_errorMessage != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: DesignTokens.space2), // Reduced from space3
+                              child: Text(
+                                _errorMessage!,
+                                style: DesignTokens.bodySmall.copyWith(
+                                  color: BrandColors.absentRed,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+
+                          const SizedBox(height: DesignTokens.space2), // Reduced from space3
+
+                          // Register button
+                          PillButton(
+                            label: _isLoading ? 'Creating account...' : 'Create Account',
+                            icon: _isLoading ? null : Icons.person_add_rounded,
+                            onPressed: _isLoading ? null : _handleRegister,
+                            isDark: isDark,
+                            loading: _isLoading,
+                          ),
+                          const SizedBox(height: DesignTokens.space6),
+
+                          // Login link
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Already have an account? ',
+                                  style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => context.go(AppRoutes.login),
+                                child: const Text('Sign in'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -406,47 +386,45 @@ class _RegisterPageState extends ConsumerState<RegisterPage> with TickerProvider
     );
   }
 
-  Widget _buildRoleButton(String label, bool isAdmin) {
+  Widget _buildRoleButton(String label, bool isAdmin, bool isDark, Color textPrimary, Color textSecondary) {
     final selected = _isAdmin == isAdmin;
     return Flexible(
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: DesignTokens.durationNormal,
         curve: Curves.easeInOut,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: () => _onRoleChanged(isAdmin),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: DesignTokens.space4),
               decoration: BoxDecoration(
-                color: selected ? Theme.of(context).colorScheme.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
+                color: selected
+                    ? (isDark ? BrandColors.primary.withValues(alpha: 0.2) : BrandColors.primary.withValues(alpha: 0.1))
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                border: Border.all(
+                  color: selected
+                      ? BrandColors.primary
+                      : (isDark ? BrandColors.darkOutline : BrandColors.lightOutline),
+                  width: selected ? 2 : 1,
+                ),
               ),
               child: Center(
                 child: Text(
                   label,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: selected
-                            ? Theme.of(context).colorScheme.onPrimary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: DesignTokens.titleMedium.copyWith(
+                    color: selected
+                        ? BrandColors.primary
+                        : textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildAnimatedField({required Widget child}) {
-    return SlideTransition(
-      position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: child,
       ),
     );
   }

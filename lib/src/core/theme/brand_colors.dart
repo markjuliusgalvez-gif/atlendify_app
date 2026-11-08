@@ -16,6 +16,7 @@ class BrandColors {
   // Light theme surfaces
   static const Color lightBackground = Color(0xFFF7F9FC);
   static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightSurfaceVariant = Color(0xFFF0F2F5);
   static const Color lightOutline = Color(0xFFE0E4EB);
   static const Color lightTextPrimary = Color(0xFF1A1D21);
   static const Color lightTextSecondary = Color(0xFF6B7280);
@@ -23,6 +24,7 @@ class BrandColors {
   // Dark theme surfaces
   static const Color darkBackground = Color(0xFF0E1116);
   static const Color darkSurface = Color(0xFF151A21);
+  static const Color darkSurfaceVariant = Color(0xFF1C232D);
   static const Color darkOutline = Color(0xFF2A313B);
   static const Color darkTextPrimary = Color(0xFFFFFFFF);
   static const Color darkTextSecondary = Color(0xFF9CA3AF);

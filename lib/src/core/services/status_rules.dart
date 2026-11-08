@@ -9,8 +9,18 @@ class TimeUtils {
     if (parts.length != 2) {
       throw FormatException('Invalid time format: $timeStr');
     }
+    // Enforce HH:mm format (2 digits for hour and minute)
+    if (parts[0].length != 2 || parts[1].length != 2) {
+      throw FormatException('Invalid time format: $timeStr');
+    }
     final hour = int.parse(parts[0]);
     final minute = int.parse(parts[1]);
+    if (hour < 0 || hour > 23) {
+      throw FormatException('Invalid hour: $hour');
+    }
+    if (minute < 0 || minute > 59) {
+      throw FormatException('Invalid minute: $minute');
+    }
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day, hour, minute);
   }
@@ -20,8 +30,18 @@ class TimeUtils {
     if (parts.length != 2) {
       throw FormatException('Invalid time format: $timeStr');
     }
+    // Enforce HH:mm format (2 digits for hour and minute)
+    if (parts[0].length != 2 || parts[1].length != 2) {
+      throw FormatException('Invalid time format: $timeStr');
+    }
     final hour = int.parse(parts[0]);
     final minute = int.parse(parts[1]);
+    if (hour < 0 || hour > 23) {
+      throw FormatException('Invalid hour: $hour');
+    }
+    if (minute < 0 || minute > 59) {
+      throw FormatException('Invalid minute: $minute');
+    }
     return DateTime(date.year, date.month, date.day, hour, minute);
   }
 

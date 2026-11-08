@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/services/pin_service.dart';
 import '../../core/theme/brand_colors.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../features/auth/auth_provider.dart';
-import '../../core/services/pin_service.dart';
 import '../../core/router/app_router.dart';
+import '../../core/widgets/pin_boxes.dart';
 
 class PinGatePage extends ConsumerStatefulWidget {
   const PinGatePage({super.key});
@@ -15,17 +17,18 @@ class PinGatePage extends ConsumerStatefulWidget {
   ConsumerState<PinGatePage> createState() => _PinGatePageState();
 }
 
-class _PinGatePageState extends ConsumerState<PinGatePage> with TickerProviderStateMixin {
+class _PinGatePageState extends ConsumerState<PinGatePage>
+    with TickerProviderStateMixin {
   final _pinController = TextEditingController();
-  final _pinFocus = FocusNode();
-  final _formKey = GlobalKey<FormState>();
 
   bool _isLoading = false;
   String? _errorMessage;
   PinLockoutState? _lockoutState;
 
   late AnimationController _shakeController;
-  late Animation<double> _shakeAnimation;
+  late AnimationController _entranceController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
@@ -34,18 +37,35 @@ class _PinGatePageState extends ConsumerState<PinGatePage> with TickerProviderSt
       duration: const Duration(milliseconds: 400),
       vsync: this,
     );
-    _shakeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _shakeController, curve: Curves.elasticOut),
+    _entranceController = AnimationController(
+      duration: DesignTokens.durationSlow,
+      vsync: this,
     );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: DesignTokens.emphasizedCurve,
+          ),
+        );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: DesignTokens.emphasizedCurve,
+      ),
+    );
+
     _checkLockout();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _pinFocus.requestFocus();
-    });
+    _entranceController.forward();
   }
 
   Future<void> _checkLockout() async {
+    final authState = ref.read(authProvider);
+    if (authState is! AuthAuthenticated) return;
+
+    final userId = authState.session.user.id!;
     final pinService = PinService();
-    final state = await pinService.getLockoutState();
+    final state = await pinService.getLockoutState(userId);
     if (mounted) {
       setState(() {
         _lockoutState = state;
@@ -56,13 +76,13 @@ class _PinGatePageState extends ConsumerState<PinGatePage> with TickerProviderSt
   @override
   void dispose() {
     _pinController.dispose();
-    _pinFocus.dispose();
     _shakeController.dispose();
+    _entranceController.dispose();
     super.dispose();
   }
 
-  Future<void> _handlePinSubmit() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _handlePinSubmit(String pin) async {
+    if (_isLoading) return;
 
     final authState = ref.read(authProvider);
     if (authState is! AuthAuthenticated) return;
@@ -70,10 +90,11 @@ class _PinGatePageState extends ConsumerState<PinGatePage> with TickerProviderSt
     final user = authState.session.user;
     if (user.pinHash == null || user.pinSalt == null) {
       // No PIN set - navigate to setup
-      // For now, just proceed to admin home
       if (mounted) context.go(AppRoutes.adminHome);
       return;
     }
+
+    final userId = user.id!;
 
     setState(() {
       _isLoading = true;
@@ -82,9 +103,10 @@ class _PinGatePageState extends ConsumerState<PinGatePage> with TickerProviderSt
 
     final pinService = PinService();
     final result = await pinService.verifyPin(
-      enteredPin: _pinController.text,
+      enteredPin: pin,
       storedPinHash: user.pinHash!,
       storedPinSalt: user.pinSalt!,
+      userId: userId,
     );
 
     if (!mounted) return;
@@ -95,16 +117,19 @@ class _PinGatePageState extends ConsumerState<PinGatePage> with TickerProviderSt
 
     if (result.isSuccess) {
       _pinController.clear();
+      ref.read(authProvider.notifier).unlockPin();
       if (mounted) context.go(AppRoutes.adminHome);
     } else if (!result.isSuccess && result.attemptsRemaining != null) {
       setState(() {
-        _errorMessage = 'Incorrect PIN. ${result.attemptsRemaining} attempts remaining.';
+        _errorMessage =
+            'Incorrect PIN. ${result.attemptsRemaining} attempts remaining.';
       });
       _triggerShake();
       await _checkLockout();
     } else if (!result.isSuccess && result.lockedOutRemaining != null) {
       setState(() {
-        _errorMessage = 'Too many failed attempts. Try again in ${result.lockedOutRemaining!.inSeconds} seconds.';
+        _errorMessage =
+            'Too many failed attempts. Try again in ${result.lockedOutRemaining!.inSeconds} seconds.';
       });
       await _checkLockout();
     }
@@ -115,211 +140,257 @@ class _PinGatePageState extends ConsumerState<PinGatePage> with TickerProviderSt
     HapticFeedback.heavyImpact();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final logoTint = isDark ? BrandColors.logoTintDark : BrandColors.logoTintLight;
-
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height -
-                  MediaQuery.of(context).padding.top -
-                  MediaQuery.of(context).padding.bottom -
-                  48,
-            ),
-            child: IntrinsicHeight(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Theme toggle
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: ThemeToggleButton(),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Logo mark
-                  Center(
-                    child: ColorFiltered(
-                      colorFilter: ColorFilter.mode(logoTint, BlendMode.srcIn),
-                      child: Image.asset(
-                        'assets/images/logo_mark.png',
-                        width: 80,
-                        height: 80,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Title
-                  Text(
-                    'Admin PIN',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Enter your 4-digit PIN to access the admin dashboard',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
-
-                  // PIN dots
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        AnimatedBuilder(
-                          animation: _shakeAnimation,
-                          builder: (context, child) {
-                            return Transform.translate(
-                              offset: Offset(_shakeAnimation.value * 20 * (1 - _shakeAnimation.value), 0),
-                              child: child,
-                            );
-                          },
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(4, (index) {
-                              final filled = index < _pinController.text.length;
-                              return Container(
-                                width: 16,
-                                height: 16,
-                                margin: const EdgeInsets.symmetric(horizontal: 8),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: filled
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).colorScheme.outline,
-                                  border: Border.all(
-                                    color: Theme.of(context).colorScheme.outline,
-                                    width: 2,
-                                  ),
-                                ),
-                              );
-                            }),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Hidden input field
-                        Opacity(
-                          opacity: 0,
-                          child: TextFormField(
-                            controller: _pinController,
-                            focusNode: _pinFocus,
-                            keyboardType: TextInputType.number,
-                            maxLength: 4,
-                            showCursor: false,
-                            decoration: const InputDecoration(
-                              counterText: '',
-                              border: InputBorder.none,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) return 'PIN required';
-                              if (value.length != 4) return 'Enter 4 digits';
-                              return null;
-                            },
-                            onChanged: (value) {
-                              setState(() {});
-                              if (value.length == 4) {
-                                _handlePinSubmit();
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Lockout countdown
-                        if (_lockoutState != null && _lockoutState!.isLockedOut)
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.errorContainer,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.lock_outline,
-                                  color: Theme.of(context).colorScheme.onErrorContainer,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Locked for ${_lockoutState!.remainingLockout!.inSeconds} seconds',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: Theme.of(context).colorScheme.onErrorContainer,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                        if (_lockoutState != null && _lockoutState!.isLockedOut)
-                          const SizedBox(height: 16),
-
-                        // Error message
-                        if (_errorMessage != null && !(_lockoutState != null && _lockoutState!.isLockedOut))
-                          Text(
-                            _errorMessage!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                              fontSize: 14,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-
-                        if (_errorMessage != null && !(_lockoutState != null && _lockoutState!.isLockedOut))
-                          const SizedBox(height: 16),
-
-                        // Forgot PIN
-                        TextButton(
-                          onPressed: _isLoading ? null : _showForgotPinDialog,
-                          child: const Text('Forgot PIN?'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showForgotPinDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+    final textPrimary = isDark
+        ? BrandColors.darkTextPrimary
+        : BrandColors.lightTextPrimary;
+    final textSecondary = isDark
+        ? BrandColors.darkTextSecondary
+        : BrandColors.lightTextSecondary;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset PIN'),
-        content: const Text(
+        backgroundColor: bgColor,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(
+            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            width: 1,
+          ),
+        ),
+        title: Text(
+          'Reset PIN',
+          style: DesignTokens.headlineSmall.copyWith(
+            color: textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
           'To reset your PIN, please verify your account password first. This feature will be implemented soon.',
+          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: DesignTokens.labelLarge.copyWith(
+                color: textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
               // TODO: Implement password verification and PIN reset
             },
-            child: const Text('Verify Password'),
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+            ),
+            child: Text(
+              'Verify Password',
+              style: DesignTokens.labelLarge.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space2,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark
+        ? BrandColors.darkBackground
+        : BrandColors.lightBackground;
+    final logoTint = isDark
+        ? BrandColors.logoTintDark
+        : BrandColors.logoTintLight;
+    final textPrimary = isDark
+        ? BrandColors.darkTextPrimary
+        : BrandColors.lightTextPrimary;
+    final textSecondary = isDark
+        ? BrandColors.darkTextSecondary
+        : BrandColors.lightTextSecondary;
+
+    // Accent color for buttons in dark mode (lighter, more visible)
+    final accentColor = isDark ? BrandColors.primaryLight : BrandColors.primary;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        // System back button pressed - sign out and go to login
+        await ref.read(authProvider.notifier).signOut();
+        if (mounted) {
+          context.go(AppRoutes.login);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: SafeArea(
+          child: SingleChildScrollView(
+          padding: const EdgeInsets.all(DesignTokens.space6),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight:
+                  MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom -
+                  DesignTokens.space12,
+            ),
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                      // Theme toggle
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: ThemeToggleButton(),
+                      ),
+                      const SizedBox(height: DesignTokens.space6),
+
+                      // Logo mark
+                      Center(
+                        child: ColorFiltered(
+                          colorFilter: ColorFilter.mode(
+                            logoTint,
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/logo_mark.png',
+                            width: 88,
+                            height: 88,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: DesignTokens.space8),
+
+                      // Title
+                      Text(
+                        'Admin PIN',
+                        style: DesignTokens.headlineLarge.copyWith(
+                          color: textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: DesignTokens.space2),
+                      Text(
+                        'Enter your 4-digit PIN to access the admin dashboard',
+                        style: DesignTokens.bodyMedium.copyWith(
+                          color: textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: DesignTokens.space8),
+
+                      // PIN Boxes - no outer card, constrained width
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: PinBoxes(
+                            controller: _pinController,
+                            disabled: _isLoading ||
+                                _lockoutState?.isLockedOut == true,
+                            errorText: _errorMessage,
+                            lockoutState: _lockoutState,
+                            semanticLabel: 'Admin PIN',
+                            autofocus: true,
+                            onSubmit: _handlePinSubmit,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: DesignTokens.space5),
+
+                      // Forgot PIN? - uses accent color for visibility in dark mode
+                      Center(
+                        child: TextButton(
+                          onPressed: _isLoading
+                              ? null
+                              : _showForgotPinDialog,
+                          style: TextButton.styleFrom(
+                            foregroundColor: accentColor,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: DesignTokens.space3,
+                              vertical: DesignTokens.space1,
+                            ),
+                          ),
+                          child: Text(
+                            'Forgot PIN?',
+                            style: DesignTokens.labelLarge.copyWith(
+                              color: accentColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: DesignTokens.space3),
+
+                      // Back to Login button - outlined pill, full width of box row
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: OutlinedButton.icon(
+                            onPressed: _isLoading
+                                ? null
+                                : () async {
+                                    await ref.read(authProvider.notifier).signOut();
+                                    if (mounted) {
+                                      context.go(AppRoutes.login);
+                                    }
+                                  },
+                            icon: const Icon(
+                              Icons.arrow_back_rounded,
+                              size: 18,
+                            ),
+                            label: Text(
+                              'Back to Login',
+                              style: DesignTokens.labelLarge.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: accentColor,
+                              side: BorderSide(color: accentColor, width: 1.5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: DesignTokens.space5,
+                                vertical: DesignTokens.space2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  DesignTokens.radiusPill,
+                                ),
+                              ),
+                              minimumSize: const Size(double.infinity, 48),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

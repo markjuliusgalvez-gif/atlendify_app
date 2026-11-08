@@ -5,7 +5,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/router/app_router.dart';
 import '../../core/services/qr_service.dart';
 import '../../core/theme/brand_colors.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
 class StudentHomePage extends ConsumerStatefulWidget {
@@ -20,6 +22,9 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
   String? _qrData;
   late AnimationController _qrAnimationController;
   late Animation<double> _qrScaleAnimation;
+  late AnimationController _entranceController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
@@ -32,13 +37,30 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
       parent: _qrAnimationController,
       curve: Curves.elasticOut,
     );
+    _entranceController = AnimationController(
+      duration: DesignTokens.durationSlow,
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve));
     _generateQrCode();
+    _entranceController.forward();
   }
 
   @override
   void dispose() {
     _qrAnimationController.dispose();
+    _entranceController.dispose();
     super.dispose();
+  }
+
+  Widget _buildStaggeredItem(int index, Widget child) {
+    return StaggeredItem(key: ValueKey(index), index: index, child: child);
   }
 
   void _generateQrCode() {
@@ -94,10 +116,10 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
       minChildSize: 0.5,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          color: isDark ? BrandColors.darkSurface : BrandColors.lightSurface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusDialog)),
           border: Border.all(
-            color: Theme.of(context).colorScheme.outline,
+            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
             width: 1,
           ),
         ),
@@ -109,13 +131,13 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.outline,
+                color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             // Header
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(DesignTokens.space4),
               child: Column(
                 children: [
                   Row(
@@ -123,9 +145,10 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                     children: [
                       Text(
                         'Today\'s QR Code',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                        style: DesignTokens.headlineSmall.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                        ),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(context),
@@ -133,12 +156,12 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: DesignTokens.space1),
                   Text(
                     'Scan this code to mark your attendance',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                    style: DesignTokens.bodyMedium.copyWith(
+                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -147,29 +170,15 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
             Expanded(
               child: SingleChildScrollView(
                 controller: scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5, vertical: DesignTokens.space3),
                 child: Column(
                   children: [
                     if (_qrData != null) ...[
                       ScaleTransition(
                         scale: _qrScaleAnimation,
-                        child: Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E252E) : Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Theme.of(context).colorScheme.outline,
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
+                        child: SoftCard(
+                          isDark: isDark,
+                          padding: const EdgeInsets.all(DesignTokens.space4),
                           child: QrImageView(
                             data: _qrData!,
                             version: QrVersions.auto,
@@ -177,53 +186,58 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                             backgroundColor: Colors.white,
                             eyeStyle: QrEyeStyle(
                               eyeShape: QrEyeShape.square,
-                              color: isDark ? Colors.white : BrandColors.primary,
+                              color: BrandColors.primary,
                             ),
                             dataModuleStyle: QrDataModuleStyle(
                               dataModuleShape: QrDataModuleShape.square,
-                              color: isDark ? Colors.white : BrandColors.primary,
+                              color: BrandColors.primary,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: DesignTokens.space4),
                       // Student info card
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+                      SoftCard(
+                        isDark: isDark,
+                        padding: const EdgeInsets.all(DesignTokens.space4),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Student Information',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              style: DesignTokens.titleMedium.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                              ),
                             ),
-                            const SizedBox(height: 16),
-                            _buildInfoRow('Name', student?.fullName ?? 'N/A', context),
-                            _buildInfoRow('Student Number', student?.studentNumber ?? 'N/A', context),
-                            _buildInfoRow('Date', _formatDate(DateTime.now()), context),
+                            const SizedBox(height: DesignTokens.space3),
+                            _buildInfoRow('Name', student?.fullName ?? 'N/A', context, isDark),
+                            _buildInfoRow('Student Number', student?.studentNumber ?? 'N/A', context, isDark),
+                            _buildInfoRow('Date', _formatDate(DateTime.now()), context, isDark),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: DesignTokens.space3),
                       // Refresh button
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton.icon(
+                        child: PillButton(
+                          label: 'Refresh QR Code',
+                          icon: Icons.refresh_rounded,
                           onPressed: () {
                             _generateQrCode();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('QR code refreshed')),
+                              SnackBar(
+                                content: const Text('QR code refreshed'),
+                                backgroundColor: BrandColors.primary,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                                ),
+                              ),
                             );
                           },
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Refresh QR Code'),
+                          isDark: isDark,
                         ),
                       ),
                     ] else ...[
@@ -241,9 +255,9 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
     );
   }
 
-  Widget _buildInfoRow(String label, String value, BuildContext context) {
+  Widget _buildInfoRow(String label, String value, BuildContext context, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: DesignTokens.space1),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -251,17 +265,18 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
             width: 120,
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+              style: DesignTokens.bodyMedium.copyWith(
+                color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+              style: DesignTokens.bodyMedium.copyWith(
+                fontWeight: FontWeight.w500,
+                color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+              ),
             ),
           ),
         ],
@@ -277,214 +292,602 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final session = authState is AuthAuthenticated ? authState.session : null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
 
     return Scaffold(
+      backgroundColor: bgColor,
+      extendBody: true,
       appBar: AppBar(
-        title: Text(session?.student?.fullName ?? 'Home'),
-        actions: [
-          IconButton(
-            onPressed: _showQrSheet,
-            icon: const Icon(Icons.qr_code_rounded),
-            tooltip: 'Show QR Code',
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        leading: session?.student != null
+            ? _buildProfileMenu(session!, context, textPrimary, textSecondary, isDark)
+            : null,
+        title: Text(
+          session?.student?.fullName ?? 'Home',
+          style: DesignTokens.headlineSmall.copyWith(
+            fontWeight: FontWeight.w700,
+            color: textPrimary,
           ),
+        ),
+        actions: [
           const ThemeToggleButton(),
         ],
       ),
       body: session != null
-          ? _buildHomeContent(session)
-          : const Center(child: Text('Not logged in')),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onTabSelected,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history),
-            label: 'My Records',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
+          ? _buildHomeContent(session, textPrimary, textSecondary, isDark)
+          : Center(
+              child: Text(
+                'Not logged in',
+                style: DesignTokens.bodyLarge.copyWith(color: textSecondary),
+              ),
+            ),
+      bottomNavigationBar: _buildFloatingNavBar(isDark),
     );
   }
 
-  Widget _buildHomeContent(UserSession session) {
-    return RefreshIndicator(
-      onRefresh: () async => _generateQrCode(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Quick QR access card
-            Card(
-              child: InkWell(
-                onTap: _showQrSheet,
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
+  Widget _buildFloatingNavBar(bool isDark) {
+    return FloatingNavBar(
+      selectedIndex: _selectedIndex,
+      onDestinationSelected: _onTabSelected,
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home_rounded),
+          label: 'Home',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.history_outlined),
+          selectedIcon: Icon(Icons.history_rounded),
+          label: 'My Records',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person_rounded),
+          label: 'Profile',
+        ),
+      ],
+      isDark: isDark,
+      accentColor: BrandColors.primary,
+    );
+  }
+
+  Widget _buildHomeContent(UserSession session, Color textPrimary, Color textSecondary, bool isDark) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: RefreshIndicator(
+          onRefresh: () async => _generateQrCode(),
+          color: BrandColors.primary,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(
+              DesignTokens.space6,
+              DesignTokens.space6,
+              DesignTokens.space6,
+              DesignTokens.space6 + 120,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Quick QR access card with staggered entrance
+                _buildStaggeredItem(0, SoftTile(
+                  isDark: isDark,
+                  onTap: _showQrSheet,
+                  padding: const EdgeInsets.all(DesignTokens.space5),
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(DesignTokens.space4),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(14),
+                          color: BrandColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
                         ),
                         child: Icon(
                           Icons.qr_code_rounded,
                           size: 32,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: BrandColors.primary,
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: DesignTokens.space4),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'My QR Code',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              style: DesignTokens.titleLarge.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
+                              ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: DesignTokens.space1),
                             Text(
                               'Tap to show your daily attendance code',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                  ),
+                              style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
                             ),
                           ],
                         ),
                       ),
                       Icon(
                         Icons.chevron_right_rounded,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: textSecondary,
                       ),
                     ],
                   ),
+                )),
+                const SizedBox(height: DesignTokens.space5),
+
+                // Today's sessions
+                Text(
+                  'Today\'s Sessions',
+                  style: DesignTokens.headlineSmall.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
+                const SizedBox(height: DesignTokens.space3),
 
-            // Today's sessions
-            Text(
-              'Today\'s Sessions',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                // TODO: Fetch actual sessions from database
+                _buildEmptySessions(context, textPrimary, textSecondary, isDark),
+
+                const SizedBox(height: DesignTokens.space5),
+
+                // Quick stats
+                Text(
+                  'Quick Stats',
+                  style: DesignTokens.headlineSmall.copyWith(
                     fontWeight: FontWeight.w700,
+                    color: textPrimary,
                   ),
+                ),
+                const SizedBox(height: DesignTokens.space3),
+                _buildStatsGrid(context, isDark, textSecondary),
+              ],
             ),
-            const SizedBox(height: 16),
-
-            // TODO: Fetch actual sessions from database
-            _buildEmptySessions(context),
-
-            const SizedBox(height: 24),
-
-            // Quick stats
-            Text(
-              'Quick Stats',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            _buildStatsGrid(context),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptySessions(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Icon(
+  Widget _buildEmptySessions(BuildContext context, Color textPrimary, Color textSecondary, bool isDark) {
+    return SoftCard(
+      isDark: isDark,
+      padding: const EdgeInsets.all(DesignTokens.space5),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(DesignTokens.space3),
+            decoration: BoxDecoration(
+              color: (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant).withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusCircle),
+            ),
+            child: Icon(
               Icons.event_busy_rounded,
               size: 48,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: textSecondary,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'No sessions today',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your attendance sessions will appear here',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatsGrid(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 100),
-            child: _buildStatCard('Present', '0', BrandColors.presentGreen, context),
           ),
-          const SizedBox(width: 12),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 100),
-            child: _buildStatCard('Late', '0', BrandColors.lateAmber, context),
+          const SizedBox(height: DesignTokens.space3),
+          Text(
+            'No sessions today',
+            style: DesignTokens.titleMedium.copyWith(
+              fontWeight: FontWeight.w600,
+              color: textPrimary,
+            ),
           ),
-          const SizedBox(width: 12),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 100),
-            child: _buildStatCard('Absent', '0', BrandColors.absentRed, context),
+          const SizedBox(height: DesignTokens.space1),
+          Text(
+            'Your attendance sessions will appear here',
+            style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color, BuildContext context) {
-    return Card(
+  Widget _buildStatsGrid(BuildContext context, bool isDark, Color textSecondary) {
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: DesignTokens.space3,
+      mainAxisSpacing: DesignTokens.space3,
+      childAspectRatio: 1.0,
+      children: [
+        _buildStatCard('Present', '0', BrandColors.presentGreen, context, isDark, textSecondary),
+        _buildStatCard('Late', '0', BrandColors.lateAmber, context, isDark, textSecondary),
+        _buildStatCard('Absent', '0', BrandColors.absentRed, context, isDark, textSecondary),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(String label, String value, Color color, BuildContext context, bool isDark, Color textSecondary) {
+    return SoftCard(
+      isDark: isDark,
+      padding: const EdgeInsets.all(DesignTokens.space4),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: DesignTokens.headlineMedium.copyWith(
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: DesignTokens.space1),
+          Text(
+            label,
+            style: DesignTokens.bodyMedium.copyWith(
+              color: textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileMenu(
+    UserSession session,
+    BuildContext context,
+    Color textPrimary,
+    Color textSecondary,
+    bool isDark,
+  ) {
+    final student = session.student!;
+    final user = session.user;
+
+    return PopupMenuButton<String>(
+      onSelected: (value) {
+        switch (value) {
+          case 'profile':
+            context.go(AppRoutes.studentProfile);
+            break;
+          case 'change_avatar':
+            _showChangeAvatarDialog(context, isDark, textPrimary, textSecondary);
+            break;
+          case 'logout':
+            _showLogoutDialog(context, ref);
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          height: 0,
+          padding: EdgeInsets.zero,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(DesignTokens.space4),
+            decoration: BoxDecoration(
+              color: isDark ? BrandColors.darkSurface : BrandColors.lightSurface,
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: BrandColors.primary.withValues(alpha: 0.12),
+                  child: Text(
+                    student.fullName.isNotEmpty
+                        ? student.fullName[0].toUpperCase()
+                        : '?',
+                    style: DesignTokens.headlineSmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: BrandColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: DesignTokens.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        student.fullName,
+                        style: DesignTokens.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: DesignTokens.space1),
+                      Text(
+                        student.studentNumber,
+                        style: DesignTokens.bodySmall.copyWith(
+                          color: textSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: DesignTokens.space1),
+                      Text(
+                        user.email,
+                        style: DesignTokens.bodySmall.copyWith(
+                          color: textSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'profile',
+          child: Row(
+            children: [
+              Icon(
+                Icons.person_rounded,
+                size: 20,
+                color: textSecondary,
+              ),
+              const SizedBox(width: DesignTokens.space3),
+              Text(
+                'My Profile',
+                style: DesignTokens.bodyMedium.copyWith(
+                  color: textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'change_avatar',
+          child: Row(
+            children: [
+              Icon(
+                Icons.camera_alt_rounded,
+                size: 20,
+                color: textSecondary,
+              ),
+              const SizedBox(width: DesignTokens.space3),
+              Text(
+                'Change Profile Picture',
+                style: DesignTokens.bodyMedium.copyWith(
+                  color: textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(
+                Icons.logout_rounded,
+                size: 20,
+                color: BrandColors.absentRed,
+              ),
+              const SizedBox(width: DesignTokens.space3),
+              Text(
+                'Logout',
+                style: DesignTokens.bodyMedium.copyWith(
+                  color: BrandColors.absentRed,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
       child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
+        padding: const EdgeInsets.all(DesignTokens.space2),
+        child: CircleAvatar(
+          radius: 18,
+          backgroundColor: BrandColors.primary.withValues(alpha: 0.12),
+          child: Text(
+            student.fullName.isNotEmpty
+                ? student.fullName[0].toUpperCase()
+                : '?',
+            style: DesignTokens.titleMedium.copyWith(
+              fontWeight: FontWeight.w700,
+              color: BrandColors.primary,
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChangeAvatarDialog(
+    BuildContext context,
+    bool isDark,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    final student = ref.read(authProvider);
+    if (student is! AuthAuthenticated) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: isDark ? BrandColors.darkSurface : BrandColors.lightSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(
+            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            width: 1,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(DesignTokens.space5),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Change Profile Picture',
+                style: DesignTokens.headlineSmall.copyWith(
+                  color: textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: DesignTokens.space2),
+              Text(
+                'Select a new profile picture',
+                style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+              ),
+              const SizedBox(height: DesignTokens.space4),
+              Center(
+                child: CircleAvatar(
+                  radius: 48,
+                  backgroundColor: BrandColors.primary.withValues(alpha: 0.12),
+                  child: Text(
+                    student.session.student!.fullName.isNotEmpty
+                        ? student.session.student!.fullName[0].toUpperCase()
+                        : '?',
+                    style: DesignTokens.headlineMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: BrandColors.primary,
+                    ),
                   ),
-            ),
-          ],
+                ),
+              ),
+              const SizedBox(height: DesignTokens.space4),
+              Row(
+                children: [
+                  Expanded(
+                    child: PillButton(
+                      label: 'Choose from Gallery',
+                      icon: Icons.photo_library_rounded,
+                      onPressed: () {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Gallery picker coming soon'),
+                            backgroundColor: BrandColors.primary,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                            ),
+                          ),
+                        );
+                      },
+                      isDark: isDark,
+                      outlined: true,
+                    ),
+                  ),
+                  const SizedBox(width: DesignTokens.space2),
+                  Expanded(
+                    child: PillButton(
+                      label: 'Take Photo',
+                      icon: Icons.camera_alt_rounded,
+                      onPressed: () {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Camera coming soon'),
+                            backgroundColor: BrandColors.primary,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                            ),
+                          ),
+                        );
+                      },
+                      isDark: isDark,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: DesignTokens.space3),
+              SizedBox(
+                width: double.infinity,
+                child: PillButton(
+                  label: 'Cancel',
+                  icon: Icons.close_rounded,
+                  onPressed: () => Navigator.pop(context),
+                  isDark: isDark,
+                  outlined: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: bgColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(color: outlineColor, width: 1),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(DesignTokens.space5),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Logout',
+                style: DesignTokens.headlineSmall.copyWith(
+                  color: textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: DesignTokens.space2),
+              Text(
+                'Are you sure you want to logout?',
+                style: DesignTokens.bodyMedium.copyWith(
+                  color: textSecondary,
+                ),
+              ),
+              const SizedBox(height: DesignTokens.space4),
+              Row(
+                children: [
+                  Expanded(
+                    child: PillButton(
+                      label: 'Cancel',
+                      icon: Icons.close_rounded,
+                      onPressed: () => Navigator.pop(context),
+                      isDark: isDark,
+                      outlined: true,
+                    ),
+                  ),
+                  const SizedBox(width: DesignTokens.space2),
+                  Expanded(
+                    child: PillButton(
+                      label: 'Logout',
+                      icon: Icons.logout_rounded,
+                      onPressed: () {
+                        Navigator.pop(context);
+                        ref.read(authProvider.notifier).logout();
+                      },
+                      isDark: isDark,
+                      backgroundColor: BrandColors.absentRed,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

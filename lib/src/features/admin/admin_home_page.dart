@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/brand_colors.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
 class AdminHomePage extends ConsumerStatefulWidget {
@@ -14,8 +16,10 @@ class AdminHomePage extends ConsumerStatefulWidget {
   ConsumerState<AdminHomePage> createState() => _AdminHomePageState();
 }
 
-class _AdminHomePageState extends ConsumerState<AdminHomePage> {
+class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
+  late AnimationController _entranceController;
+  late Animation<double> _staggerAnimation;
 
   void _onTabSelected(int index) {
     setState(() => _selectedIndex = index);
@@ -27,60 +31,75 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         context.go(AppRoutes.adminSubjects);
         break;
       case 2:
-        context.go(AppRoutes.adminScan);
-        break;
-      case 3:
-        context.go(AppRoutes.adminRecords);
-        break;
-      case 4:
         context.go(AppRoutes.adminSettings);
         break;
     }
   }
 
   @override
+  void initState() {
+    super.initState();
+    _entranceController = AnimationController(
+      duration: DesignTokens.durationSlow,
+      vsync: this,
+    );
+    _staggerAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve),
+    );
+    _entranceController.forward();
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-        actions: [const ThemeToggleButton()],
-      ),
+      backgroundColor: bgColor,
+      extendBody: true,
       body: authState is AuthAuthenticated
           ? _buildDashboardContent()
-          : const Center(child: Text('Not logged in')),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onTabSelected,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.subject_outlined),
-            selectedIcon: Icon(Icons.subject),
-            label: 'Subjects',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            selectedIcon: Icon(Icons.qr_code_scanner),
-            label: 'Scan',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.assessment_outlined),
-            selectedIcon: Icon(Icons.assessment),
-            label: 'Records',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
-      ),
+          : Center(
+              child: Text(
+                'Not logged in',
+                style: DesignTokens.bodyLarge.copyWith(color: textSecondary),
+              ),
+            ),
+      bottomNavigationBar: _buildFloatingNavBar(isDark),
+    );
+  }
+
+  Widget _buildFloatingNavBar(bool isDark) {
+    return FloatingNavBar(
+      selectedIndex: _selectedIndex,
+      onDestinationSelected: _onTabSelected,
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.dashboard_outlined),
+          selectedIcon: Icon(Icons.dashboard_rounded),
+          label: 'Home',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.subject_outlined),
+          selectedIcon: Icon(Icons.subject_rounded),
+          label: 'Subjects',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings_rounded),
+          label: 'Settings',
+        ),
+      ],
+      isDark: isDark,
+      accentColor: BrandColors.primary,
     );
   }
 
@@ -88,42 +107,63 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     return FutureBuilder<Map<String, dynamic>>(
       future: _fetchDashboardStats(),
       builder: (context, snapshot) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+        final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: BrandColors.primary),
+                const SizedBox(height: DesignTokens.space4),
+                Text(
+                  'Loading dashboard...',
+                  style: DesignTokens.bodyMedium.copyWith(
+                    color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          );
         }
 
         if (snapshot.hasError) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline_rounded,
-                  size: 48,
-                  color: Theme.of(context).colorScheme.error,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Failed to load dashboard',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  snapshot.error.toString(),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: () => setState(() {}),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Retry'),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.all(DesignTokens.space6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.error_outline_rounded,
+                    size: 48,
+                    color: BrandColors.absentRed,
+                  ),
+                  const SizedBox(height: DesignTokens.space4),
+                  Text(
+                    'Failed to load dashboard',
+                    style: DesignTokens.headlineSmall.copyWith(
+                      color: textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: DesignTokens.space2),
+                  Text(
+                    snapshot.error.toString(),
+                    style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: DesignTokens.space4),
+                  PillButton(
+                    label: 'Retry',
+                    icon: Icons.refresh_rounded,
+                    onPressed: () => setState(() {}),
+                    isDark: isDark,
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -132,57 +172,709 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
 
         return RefreshIndicator(
           onRefresh: () async => setState(() {}),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Stats cards
-                Text(
-                  'Overview',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+          color: BrandColors.primary,
+          child: FadeTransition(
+            opacity: _staggerAnimation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve)),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  DesignTokens.space6,
+                  DesignTokens.space6,
+                  DesignTokens.space6,
+                  DesignTokens.space6 + 120,
                 ),
-                const SizedBox(height: 16),
-                _buildStatsGrid(stats, context),
-                const SizedBox(height: 24),
-
-                // Quick actions
-                Text(
-                  'Quick Actions',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 16),
-                _buildQuickActions(context),
-                const SizedBox(height: 24),
-
-                // Recent sessions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildHeader(textPrimary, textSecondary),
+                    const SizedBox(height: DesignTokens.space6),
+
                     Text(
-                      'Recent Sessions',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      'Overview',
+                      style: DesignTokens.headlineSmall.copyWith(
+                        color: textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: DesignTokens.space4),
+                    _buildStatsGrid(stats, context),
+                    const SizedBox(height: DesignTokens.space6),
+
+                    Text(
+                      'Quick Actions',
+                      style: DesignTokens.headlineSmall.copyWith(
+                        color: textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: DesignTokens.space4),
+                    _buildQuickActions(context),
+                    const SizedBox(height: DesignTokens.space6),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Recent Sessions',
+                          style: DesignTokens.headlineSmall.copyWith(
+                            color: textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
+                        ),
+                        TextButton(
+                          onPressed: () => context.go(AppRoutes.adminRecords),
+                          child: Text(
+                            'View All',
+                            style: DesignTokens.labelLarge.copyWith(
+                              color: BrandColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    TextButton(
-                      onPressed: () => context.go(AppRoutes.adminRecords),
-                      child: const Text('View All'),
-                    ),
+                    const SizedBox(height: DesignTokens.space4),
+                    _buildRecentSessions(context),
                   ],
                 ),
-                const SizedBox(height: 16),
-                _buildRecentSessions(context),
-              ],
+              ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildHeader(Color textPrimary, Color textSecondary) {
+    final authState = ref.read(authProvider);
+    String greeting = 'Welcome back';
+    String name = 'Admin';
+
+    if (authState is AuthAuthenticated) {
+      final student = authState.session.student;
+      if (student != null && student.fullName.isNotEmpty) {
+        name = student.fullName;
+      }
+      final hour = DateTime.now().hour;
+      if (hour < 12) greeting = 'Good morning';
+      else if (hour < 17) greeting = 'Good afternoon';
+      else greeting = 'Good evening';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: DesignTokens.space4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$greeting, $name',
+                  style: DesignTokens.headlineMedium.copyWith(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space1),
+                Text(
+                  'Here\'s what\'s happening today',
+                  style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const ThemeToggleButton(),
+          const SizedBox(width: DesignTokens.space2),
+          _buildProfileMenu(textPrimary, textSecondary, isDark: Theme.of(context).brightness == Brightness.dark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileMenu(Color textPrimary, Color textSecondary, {required bool isDark}) {
+    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+    final authState = ref.read(authProvider);
+    final session = authState is AuthAuthenticated ? authState.session : null;
+    final user = session?.student;
+
+    return PopupMenuButton<String>(
+      onSelected: (value) async {
+        switch (value) {
+          case 'profile':
+            if (mounted) context.push(AppRoutes.studentProfile);
+            break;
+          case 'change_avatar':
+            _showChangeAvatarDialog();
+            break;
+          case 'logout':
+            _showLogoutDialog();
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        if (user != null) ...[
+          PopupMenuItem<String>(
+            enabled: false,
+            padding: const EdgeInsets.all(DesignTokens.space3),
+            child: Row(
+              children: [
+                AvatarCircle(
+                  name: user.fullName,
+                  size: 40,
+                  isDark: isDark,
+                ),
+                const SizedBox(width: DesignTokens.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.fullName,
+                        style: DesignTokens.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                        ),
+                      ),
+                      Text(
+                        session?.user.email ?? '',
+                        style: DesignTokens.bodySmall.copyWith(
+                          color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+        ],
+        PopupMenuItem<String>(
+          value: 'profile',
+          child: Row(
+            children: [
+              Icon(Icons.person_outline_rounded, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+              const SizedBox(width: DesignTokens.space2),
+              Text('My Profile', style: DesignTokens.labelLarge),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'change_avatar',
+          child: Row(
+            children: [
+              Icon(Icons.camera_alt_outlined, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+              const SizedBox(width: DesignTokens.space2),
+              Text('Change Picture', style: DesignTokens.labelLarge),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, size: 20, color: BrandColors.absentRed),
+              const SizedBox(width: DesignTokens.space2),
+              Text('Logout', style: DesignTokens.labelLarge.copyWith(color: BrandColors.absentRed)),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.all(DesignTokens.space2),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+          border: Border.all(
+            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            width: 1,
+          ),
+        ),
+        child: AvatarCircle(
+          name: user?.fullName,
+          size: 36,
+          isDark: isDark,
+        ),
+      ),
+    );
+  }
+
+  void _showChangeAvatarDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: bgColor,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(
+            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            width: 1,
+          ),
+        ),
+        title: Text(
+          'Change Profile Picture',
+          style: DesignTokens.headlineSmall.copyWith(
+            color: textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'This feature will be implemented soon. You can pick an image from gallery or camera.',
+          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: DesignTokens.labelLarge.copyWith(
+                color: textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement image picker
+            },
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+            ),
+            child: Text(
+              'Pick Image',
+              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space3,
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: bgColor,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(
+            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            width: 1,
+          ),
+        ),
+        title: Text(
+          'Logout',
+          style: DesignTokens.headlineSmall.copyWith(
+            color: textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: DesignTokens.labelLarge.copyWith(
+                color: textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(authProvider.notifier).logout();
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: BrandColors.absentRed,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+            ),
+            child: Text(
+              'Logout',
+              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space3,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatsGrid(Map<String, dynamic> stats, BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final items = [
+      _StatItem('Subjects', stats['totalSubjects'].toString(), Icons.subject_rounded, BrandColors.primary),
+      _StatItem('Students', stats['totalStudents'].toString(), Icons.people_rounded, BrandColors.primaryLight),
+      _StatItem('Active Sessions', stats['activeSessions'].toString(), Icons.event_rounded, BrandColors.presentGreen),
+      _StatItem('Today\'s Sessions', stats['todaySessions'].toString(), Icons.today_rounded, BrandColors.lateAmber),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: DesignTokens.space4,
+        mainAxisSpacing: DesignTokens.space4,
+        childAspectRatio: 1.0,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        return _buildStatCard(items[index], isDark, index);
+      },
+    );
+  }
+
+  Widget _buildStatCard(_StatItem item, bool isDark, int index) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 300 + (index * 100)),
+      curve: DesignTokens.curveStandard,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: Opacity(
+            opacity: value,
+            child: child,
+          ),
+        );
+      },
+      child: SoftCard(
+        isDark: isDark,
+        padding: const EdgeInsets.all(DesignTokens.space4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(DesignTokens.space2),
+              decoration: BoxDecoration(
+                color: item.color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+              child: Icon(
+                item.icon,
+                color: item.color,
+                size: 20,
+              ),
+            ),
+            const SizedBox(height: DesignTokens.space3),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  item.value,
+                  style: DesignTokens.headlineMedium.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: item.color,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: DesignTokens.space1),
+            Flexible(
+              child: Text(
+                item.label,
+                style: DesignTokens.bodySmall.copyWith(
+                  color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final actions = [
+      _QuickAction(
+        'New Session',
+        Icons.add_circle_outline_rounded,
+        BrandColors.primary,
+        () => context.go(AppRoutes.adminSubjects),
+      ),
+      _QuickAction(
+        'Start Scan',
+        Icons.qr_code_scanner_rounded,
+        BrandColors.presentGreen,
+        () => context.push(AppRoutes.adminScan),
+      ),
+      _QuickAction(
+        'View Records',
+        Icons.assessment_outlined,
+        BrandColors.lateAmber,
+        () => context.go(AppRoutes.adminRecords),
+      ),
+      _QuickAction(
+        'Manage Subjects',
+        Icons.subject_outlined,
+        BrandColors.primaryLight,
+        () => context.go(AppRoutes.adminSubjects),
+      ),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: DesignTokens.space4,
+        mainAxisSpacing: DesignTokens.space4,
+        childAspectRatio: 1.0,
+      ),
+      itemCount: actions.length,
+      itemBuilder: (context, index) {
+        return _buildActionCard(actions[index], isDark, index);
+      },
+    );
+  }
+
+  Widget _buildActionCard(_QuickAction action, bool isDark, int index) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 400 + (index * 100)),
+      curve: DesignTokens.curveStandard,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: Opacity(
+            opacity: value,
+            child: child,
+          ),
+        );
+      },
+      child: SoftTile(
+        isDark: isDark,
+        onTap: action.onTap,
+        padding: const EdgeInsets.all(DesignTokens.space4),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(DesignTokens.space3),
+              decoration: BoxDecoration(
+                color: action.color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+              child: Icon(
+                action.icon,
+                color: action.color,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: DesignTokens.space2),
+            Text(
+              action.label,
+              style: DesignTokens.labelLarge.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentSessions(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return FutureBuilder<List<Session>>(
+      future: _fetchRecentSessions(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return SoftCard(
+            isDark: isDark,
+            padding: const EdgeInsets.all(DesignTokens.space6),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: BrandColors.primary),
+                  const SizedBox(height: DesignTokens.space3),
+                  Text(
+                    'Loading sessions...',
+                    style: DesignTokens.bodyMedium.copyWith(
+                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError || snapshot.data == null || snapshot.data!.isEmpty) {
+          return SoftCard(
+            isDark: isDark,
+            padding: const EdgeInsets.all(DesignTokens.space6),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.event_busy_rounded,
+                  size: 48,
+                  color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                ),
+                const SizedBox(height: DesignTokens.space4),
+                Text(
+                  'No recent sessions',
+                  style: DesignTokens.titleMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space2),
+                Text(
+                  'Create a session from the Subjects tab',
+                  style: DesignTokens.bodyMedium.copyWith(
+                    color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        final sessions = snapshot.data!.take(5).toList();
+
+        return SoftCard(
+          isDark: isDark,
+          padding: EdgeInsets.zero,
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(DesignTokens.space2),
+            itemCount: sessions.length,
+            separatorBuilder: (context, index) => Divider(
+              height: 1,
+              thickness: 1,
+              indent: DesignTokens.space4,
+              endIndent: DesignTokens.space4,
+              color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            ),
+            itemBuilder: (context, index) {
+              final session = sessions[index];
+              return _buildSessionListItem(session, isDark);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSessionListItem(Session session, bool isDark) {
+    final statusColor = session.status == 'open' ? BrandColors.presentGreen : (isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary);
+    final statusBg = session.status == 'open'
+        ? BrandColors.presentGreen.withValues(alpha: 0.12)
+        : (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant);
+
+    return InkWell(
+      onTap: () => context.push('${AppRoutes.adminRecords}?sessionId=${session.id}'),
+      borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space3,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(DesignTokens.space2),
+              decoration: BoxDecoration(
+                color: statusBg,
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+              child: Icon(
+                Icons.event_rounded,
+                color: statusColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: DesignTokens.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Session ${session.id}',
+                    style: DesignTokens.titleMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                    ),
+                  ),
+                  Text(
+                    '${session.date} • ${session.startTime} - ${session.endTime}',
+                    style: DesignTokens.bodySmall.copyWith(
+                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: DesignTokens.space3,
+                vertical: DesignTokens.space1,
+              ),
+              decoration: BoxDecoration(
+                color: statusBg,
+                borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
+              ),
+              child: Text(
+                session.status == 'open' ? 'Open' : 'Closed',
+                style: DesignTokens.labelSmall.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -196,7 +888,6 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     final students = await studentRepo.getAll();
     final sessions = await sessionRepo.getOpenSessions();
 
-    // Get today's attendance counts
     final now = DateTime.now();
     final todayStr = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
     final todaySessions = await sessionRepo.getSessionsForDate(todayStr);
@@ -221,255 +912,6 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
       'todayLate': todayLate,
       'todayAbsent': todayAbsent,
     };
-  }
-
-  Widget _buildStatsGrid(Map<String, dynamic> stats, BuildContext context) {
-    final items = [
-      _StatItem('Subjects', stats['totalSubjects'].toString(), Icons.subject_rounded, BrandColors.primary),
-      _StatItem('Students', stats['totalStudents'].toString(), Icons.people_rounded, BrandColors.primaryLight),
-      _StatItem('Active Sessions', stats['activeSessions'].toString(), Icons.event_rounded, BrandColors.presentGreen),
-      _StatItem('Today\'s Sessions', stats['todaySessions'].toString(), Icons.today_rounded, BrandColors.lateAmber),
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: items.map((item) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 150, maxWidth: 200),
-              child: _buildStatCard(item, context),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(_StatItem item, BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: item.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    item.icon,
-                    color: item.color,
-                    size: 24,
-                  ),
-                ),
-                const Spacer(),
-              ],
-            ),
-            const Spacer(),
-            Text(
-              item.value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: item.color,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              item.label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActions(BuildContext context) {
-    final actions = [
-      _QuickAction(
-        'New Session',
-        Icons.add_circle_outline_rounded,
-        BrandColors.primary,
-        () => context.go(AppRoutes.adminSubjects),
-      ),
-      _QuickAction(
-        'Start Scan',
-        Icons.qr_code_scanner_rounded,
-        BrandColors.presentGreen,
-        () => context.go(AppRoutes.adminScan),
-      ),
-      _QuickAction(
-        'View Records',
-        Icons.assessment_outlined,
-        BrandColors.lateAmber,
-        () => context.go(AppRoutes.adminRecords),
-      ),
-      _QuickAction(
-        'Manage Subjects',
-        Icons.subject_outlined,
-        BrandColors.primaryLight,
-        () => context.go(AppRoutes.adminSubjects),
-      ),
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: actions.map((action) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 150, maxWidth: 180),
-              child: _buildActionCard(action, context),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildActionCard(_QuickAction action, BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: action.onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: action.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  action.icon,
-                  color: action.color,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                action.label,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentSessions(BuildContext context) {
-    return FutureBuilder<List<Session>>(
-      future: _fetchRecentSessions(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          );
-        }
-
-        if (snapshot.hasError || snapshot.data == null || snapshot.data!.isEmpty) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.event_busy_rounded,
-                    size: 48,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No recent sessions',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Create a session from the Subjects tab',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        final sessions = snapshot.data!.take(5).toList();
-
-        return Card(
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(8),
-            itemCount: sessions.length,
-            separatorBuilder: (context, index) => Divider(height: 1, indent: 16, endIndent: 16),
-            itemBuilder: (context, index) {
-              final session = sessions[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  child: Icon(
-                    Icons.event_rounded,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                title: Text(
-                  'Session ${session.id}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                subtitle: Text(
-                  '${session.date} • ${session.startTime} - ${session.endTime}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-                trailing: Chip(
-                  label: Text(
-                    session.status == 'open' ? 'Open' : 'Closed',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  backgroundColor: session.status == 'open'
-                      ? BrandColors.presentGreen.withValues(alpha: 0.12)
-                      : Theme.of(context).colorScheme.surfaceContainerHighest,
-                  labelStyle: TextStyle(
-                    color: session.status == 'open'
-                        ? BrandColors.presentGreen
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                onTap: () => context.go('${AppRoutes.adminRecords}?sessionId=${session.id}'),
-              );
-            },
-          ),
-        );
-      },
-    );
   }
 
   Future<List<Session>> _fetchRecentSessions() async {

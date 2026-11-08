@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/brand_colors.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
 class AdminRecordsPage extends ConsumerStatefulWidget {
@@ -15,13 +16,15 @@ class AdminRecordsPage extends ConsumerStatefulWidget {
   ConsumerState<AdminRecordsPage> createState() => _AdminRecordsPageState();
 }
 
-class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
-  int _selectedIndex = 3;
+class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with SingleTickerProviderStateMixin {
+  int _selectedIndex = 2;
   String? _selectedSubjectId;
   String? _selectedDate;
   String? _selectedStatus;
   String? _searchQuery;
-  bool _isLoading = false;
+  late AnimationController _entranceController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   void _onTabSelected(int index) {
     setState(() => _selectedIndex = index);
@@ -33,76 +36,68 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
         context.go(AppRoutes.adminSubjects);
         break;
       case 2:
-        context.go(AppRoutes.adminScan);
-        break;
-      case 3:
         // Records - already here
-        break;
-      case 4:
-        context.go(AppRoutes.adminSettings);
         break;
     }
   }
 
   @override
+  void initState() {
+    super.initState();
+    _entranceController = AnimationController(
+      duration: DesignTokens.durationSlow,
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve));
+    _entranceController.forward();
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Records'),
-        actions: [
-          IconButton(
-            onPressed: _showFilterSheet,
-            icon: const Icon(Icons.filter_list_rounded),
-            tooltip: 'Filter',
-          ),
-          IconButton(
-            onPressed: _exportCsv,
-            icon: const Icon(Icons.download_rounded),
-            tooltip: 'Export CSV',
-          ),
-          const ThemeToggleButton(),
-        ],
-      ),
+      backgroundColor: bgColor,
+      extendBody: true,
       body: authState is AuthAuthenticated
-          ? _buildRecordsContent()
-          : const Center(child: Text('Not logged in')),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onTabSelected,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.subject_outlined),
-            selectedIcon: Icon(Icons.subject),
-            label: 'Subjects',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            selectedIcon: Icon(Icons.qr_code_scanner),
-            label: 'Scan',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.assessment_outlined),
-            selectedIcon: Icon(Icons.assessment),
-            label: 'Records',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
+          ? _buildRecordsContentWithHeader(textPrimary, textSecondary, isDark)
+          : Center(
+              child: Text(
+                'Not logged in',
+                style: DesignTokens.bodyLarge.copyWith(color: textSecondary),
+              ),
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showFilterSheet,
+        backgroundColor: BrandColors.primary,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
+        ),
+        child: const Icon(Icons.filter_list_rounded),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: _buildFloatingNavBar(isDark),
     );
   }
 
-  Widget _buildRecordsContent() {
+  Widget _buildRecordsContentWithHeader(Color textPrimary, Color textSecondary, bool isDark) {
     return FutureBuilder<List<Subject>>(
       future: _fetchSubjects(),
       builder: (context, snapshot) {
@@ -110,69 +105,69 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
 
         return Column(
           children: [
+            // Header with profile menu
+            _buildRecordsHeader(textPrimary, textSecondary, isDark),
             // Filter chips bar
-            _buildFilterBar(subjects),
+            _buildFilterBar(subjects, textPrimary, textSecondary, isDark),
             // Records list
             Expanded(
               child: FutureBuilder<List<AttendanceWithDetails>>(
                 future: _fetchFilteredRecords(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (snapshot.hasError) {
                     return Center(
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.error_outline_rounded,
-                            size: 48,
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                          const SizedBox(height: 16),
+                          CircularProgressIndicator(color: BrandColors.primary),
+                          const SizedBox(height: DesignTokens.space4),
                           Text(
-                            'Failed to load records',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            snapshot.error.toString(),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: () => setState(() {}),
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Retry'),
+                            'Loading records...',
+                            style: DesignTokens.bodyMedium.copyWith(
+                              color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                            ),
                           ),
                         ],
                       ),
                     );
                   }
 
+                  if (snapshot.hasError) {
+                    return ErrorState(
+                      message: snapshot.error.toString(),
+                      isDark: isDark,
+                      onRetry: () => setState(() {}),
+                    );
+                  }
+
                   final records = snapshot.data ?? [];
 
                   if (records.isEmpty) {
-                    return _buildEmptyState(context);
+                    return _buildEmptyState(textPrimary, textSecondary, isDark);
                   }
 
                   return RefreshIndicator(
                     onRefresh: () async => setState(() {}),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: records.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final record = records[index];
-                        return _buildRecordCard(record);
-                      },
+                    color: BrandColors.primary,
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(
+                            DesignTokens.space6,
+                            DesignTokens.space4,
+                            DesignTokens.space6,
+                            DesignTokens.space6 + 120,
+                          ),
+                          itemCount: records.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: DesignTokens.space3),
+                          itemBuilder: (context, index) {
+                            final record = records[index];
+                            return _buildRecordCard(record, isDark);
+                          },
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -184,79 +179,441 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
     );
   }
 
-  Widget _buildFilterBar(List<Subject> subjects) {
+  Widget _buildRecordsHeader(Color textPrimary, Color textSecondary, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        DesignTokens.space5,
+        DesignTokens.space5,
+        DesignTokens.space5,
+        DesignTokens.space3,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Attendance Records',
+                  style: DesignTokens.headlineMedium.copyWith(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space1),
+                Text(
+                  'Filter and view student attendance',
+                  style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const ThemeToggleButton(),
+          const SizedBox(width: DesignTokens.space2),
+          _buildProfileMenu(textPrimary, textSecondary, isDark: isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileMenu(Color textPrimary, Color textSecondary, {required bool isDark}) {
+    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+    final authState = ref.read(authProvider);
+    final session = authState is AuthAuthenticated ? authState.session : null;
+    final user = session?.student;
+
+    return PopupMenuButton<String>(
+      onSelected: (value) async {
+        switch (value) {
+          case 'profile':
+            if (mounted) context.push(AppRoutes.studentProfile);
+            break;
+          case 'change_avatar':
+            _showChangeAvatarDialog();
+            break;
+          case 'logout':
+            _showLogoutDialog();
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        if (user != null) ...[
+          PopupMenuItem<String>(
+            enabled: false,
+            padding: const EdgeInsets.all(DesignTokens.space3),
+            child: Row(
+              children: [
+                AvatarCircle(
+                  name: user.fullName,
+                  size: 40,
+                  isDark: isDark,
+                ),
+                const SizedBox(width: DesignTokens.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.fullName,
+                        style: DesignTokens.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                        ),
+                      ),
+                      Text(
+                        session?.user.email ?? '',
+                        style: DesignTokens.bodySmall.copyWith(
+                          color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+        ],
+        PopupMenuItem<String>(
+          value: 'profile',
+          child: Row(
+            children: [
+              Icon(Icons.person_outline_rounded, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+              const SizedBox(width: DesignTokens.space2),
+              Text('My Profile', style: DesignTokens.labelLarge),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'change_avatar',
+          child: Row(
+            children: [
+              Icon(Icons.camera_alt_outlined, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+              const SizedBox(width: DesignTokens.space2),
+              Text('Change Picture', style: DesignTokens.labelLarge),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.logout_rounded, size: 20, color: BrandColors.absentRed),
+              const SizedBox(width: DesignTokens.space2),
+              Text('Logout', style: DesignTokens.labelLarge.copyWith(color: BrandColors.absentRed)),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.all(DesignTokens.space2),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+          border: Border.all(
+            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            width: 1,
+          ),
+        ),
+        child: AvatarCircle(
+          name: user?.fullName,
+          size: 36,
+          isDark: isDark,
+        ),
+      ),
+    );
+  }
+
+  void _showChangeAvatarDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: bgColor,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(
+            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            width: 1,
+          ),
+        ),
+        title: Text(
+          'Change Profile Picture',
+          style: DesignTokens.headlineSmall.copyWith(
+            color: textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'This feature will be implemented soon. You can pick an image from gallery or camera.',
+          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: DesignTokens.labelLarge.copyWith(
+                color: textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement image picker
+            },
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+            ),
+            child: Text(
+              'Pick Image',
+              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space3,
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: bgColor,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(
+            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            width: 1,
+          ),
+        ),
+        title: Text(
+          'Logout',
+          style: DesignTokens.headlineSmall.copyWith(
+            color: textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: DesignTokens.labelLarge.copyWith(
+                color: textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(authProvider.notifier).logout();
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: BrandColors.absentRed,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+            ),
+            child: Text(
+              'Logout',
+              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space3,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingNavBar(bool isDark) {
+    return FloatingNavBar(
+      selectedIndex: _selectedIndex,
+      onDestinationSelected: _onTabSelected,
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.dashboard_outlined),
+          selectedIcon: Icon(Icons.dashboard_rounded),
+          label: 'Home',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.subject_outlined),
+          selectedIcon: Icon(Icons.subject_rounded),
+          label: 'Subjects',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings_rounded),
+          label: 'Settings',
+        ),
+      ],
+      isDark: isDark,
+      accentColor: BrandColors.primary,
+    );
+  }
+
+  Widget _buildFilterBar(List<Subject> subjects, Color textPrimary, Color textSecondary, bool isDark) {
+    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
+    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.space4,
+        vertical: DesignTokens.space3,
+      ),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: bgColor,
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outline,
+            color: outlineColor,
             width: 1,
           ),
         ),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 800),
-          child: Row(
-            children: [
-              // Subject filter
-              _buildFilterChip(
-                label: _selectedSubjectId != null
-                    ? subjects.firstWhere((s) => s.id.toString() == _selectedSubjectId).name
-                    : 'All Subjects',
-                onTap: () => _showSubjectFilter(subjects),
-                icon: Icons.subject_outlined,
+        child: Row(
+          children: [
+            // Subject filter - styled as small button
+            _buildFilterButton(
+              label: _selectedSubjectId != null
+                  ? subjects.firstWhere((s) => s.id.toString() == _selectedSubjectId).name
+                  : 'All Subjects',
+              onTap: () => _showSubjectFilter(subjects),
+              icon: Icons.subject_outlined,
+              isDark: isDark,
+              isActive: _selectedSubjectId != null,
+            ),
+            const SizedBox(width: DesignTokens.space2),
+            // Date filter
+            _buildFilterButton(
+              label: _selectedDate != null ? _formatDateDisplay(_selectedDate!) : 'All Dates',
+              onTap: _showDateFilter,
+              icon: Icons.calendar_today_outlined,
+              isDark: isDark,
+              isActive: _selectedDate != null,
+            ),
+            const SizedBox(width: DesignTokens.space2),
+            // Status filter
+            _buildFilterButton(
+              label: _selectedStatus != null ? _selectedStatus!.toUpperCase() : 'All Status',
+              onTap: _showStatusFilter,
+              icon: Icons.flag_outlined,
+              color: _getStatusColor(_selectedStatus),
+              isDark: isDark,
+              isActive: _selectedStatus != null,
+            ),
+            const SizedBox(width: DesignTokens.space2),
+            // Search
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 200, maxWidth: 300),
+              child: _StyledSearchField(
+                hintText: 'Search student...',
+                searchQuery: _searchQuery,
+                onChanged: (value) => setState(() => _searchQuery = value.isEmpty ? null : value),
+                onClear: () => setState(() => _searchQuery = null),
+                isDark: isDark,
               ),
-              const SizedBox(width: 8),
-              // Date filter
-              _buildFilterChip(
-                label: _selectedDate != null ? _formatDateDisplay(_selectedDate!) : 'All Dates',
-                onTap: _showDateFilter,
-                icon: Icons.calendar_today_outlined,
+            ),
+            if (_hasActiveFilters()) ...[
+              const SizedBox(width: DesignTokens.space2),
+              _buildFilterButton(
+                label: 'Clear All',
+                onTap: _clearFilters,
+                icon: Icons.clear_all_rounded,
+                isDark: isDark,
+                isDestructive: true,
               ),
-              const SizedBox(width: 8),
-              // Status filter
-              _buildFilterChip(
-                label: _selectedStatus != null ? _selectedStatus!.toUpperCase() : 'All Status',
-                onTap: _showStatusFilter,
-                icon: Icons.flag_outlined,
-                color: _getStatusColor(_selectedStatus),
-              ),
-              const SizedBox(width: 8),
-              // Search
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 200, maxWidth: 300),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search student...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: _searchQuery != null
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 20),
-                            onPressed: () {
-                              setState(() => _searchQuery = null);
-                            },
-                          )
-                        : null,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  onChanged: (value) => setState(() => _searchQuery = value.isEmpty ? null : value),
-                ),
-              ),
-              if (_hasActiveFilters()) ...[
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: _clearFilters,
-                  icon: const Icon(Icons.clear_all_rounded, size: 18),
-                  label: const Text('Clear'),
-                ),
-              ],
             ],
-          ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterButton({
+    required String label,
+    required VoidCallback onTap,
+    required IconData icon,
+    Color? color,
+    required bool isDark,
+    bool isActive = false,
+    bool isDestructive = false,
+  }) {
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
+    final surfaceColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+    final primaryColor = color ?? BrandColors.primary;
+
+    final bgColor = isActive || isDestructive
+        ? (isDestructive ? BrandColors.absentRed.withValues(alpha: 0.12) : primaryColor.withValues(alpha: 0.12))
+        : surfaceColor;
+    final borderColor = isActive || isDestructive
+        ? (isDestructive ? BrandColors.absentRed : primaryColor)
+        : outlineColor;
+    final textColor = isActive || isDestructive
+        ? (isDestructive ? BrandColors.absentRed : primaryColor)
+        : textSecondary;
+    final iconColor = isActive || isDestructive
+        ? (isDestructive ? BrandColors.absentRed : primaryColor)
+        : textSecondary;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space3,
+          vertical: DesignTokens.space1,
+        ),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
+          border: Border.all(color: borderColor, width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: iconColor),
+            const SizedBox(width: DesignTokens.space1),
+            Text(
+              label,
+              style: DesignTokens.labelMedium.copyWith(
+                color: textColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -278,46 +635,14 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
     });
   }
 
-  Widget _buildFilterChip({
-    required String label,
-    required VoidCallback onTap,
-    required IconData icon,
-    Color? color,
-  }) {
-    return ActionChip(
-      avatar: Icon(icon, size: 16, color: color ?? Theme.of(context).colorScheme.onSurfaceVariant),
-      label: Text(label, style: TextStyle(fontSize: 13)),
-      onPressed: onTap,
-      backgroundColor: color?.withValues(alpha: 0.12),
-      side: BorderSide(color: color ?? Theme.of(context).colorScheme.outline),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-    );
-  }
-
-  Widget _buildFilterSection({
-    required String title,
-    required IconData icon,
-    required String value,
-    required VoidCallback onTap,
-    Color? color,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: color ?? Theme.of(context).colorScheme.onSurfaceVariant),
-      title: Text(title, style: Theme.of(context).textTheme.titleMedium),
-      subtitle: Text(value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: color ?? Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500)),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: onTap,
-    );
-  }
-
   void _showFilterSheet() async {
     final subjects = await _fetchSubjects();
     if (!mounted) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.6,
         maxChildSize: 0.9,
@@ -331,14 +656,14 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.outline,
+                  color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               Expanded(
                 child: SingleChildScrollView(
                   controller: scrollController,
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(DesignTokens.space4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -347,21 +672,27 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
                         children: [
                           Text(
                             'Filter Records',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: DesignTokens.headlineSmall.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                            ),
                           ),
                           TextButton(
                             onPressed: () {
                               _clearFilters();
                               Navigator.pop(context);
                             },
-                            child: const Text('Clear All'),
+                            child: Text(
+                              'Clear All',
+                              style: DesignTokens.labelLarge.copyWith(
+                                color: BrandColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      // Subject filter section
+                      const SizedBox(height: DesignTokens.space4),
                       _buildFilterSection(
                         title: 'Subject',
                         icon: Icons.subject_outlined,
@@ -372,23 +703,24 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
                           Navigator.pop(context);
                           _showSubjectFilter(subjects);
                         },
+                        isDark: isDark,
                       ),
-                      const Divider(),
-                      // Date filter
+                      const SizedBox(height: DesignTokens.space3),
                       _buildFilterSection(
                         title: 'Date',
                         icon: Icons.calendar_today_outlined,
                         value: _selectedDate != null ? _formatDateDisplay(_selectedDate!) : 'All Dates',
                         onTap: _showDateFilter,
+                        isDark: isDark,
                       ),
-                      const Divider(),
-                      // Status filter
+                      const SizedBox(height: DesignTokens.space3),
                       _buildFilterSection(
                         title: 'Status',
                         icon: Icons.flag_outlined,
                         value: _selectedStatus != null ? _selectedStatus!.toUpperCase() : 'All Status',
                         onTap: _showStatusFilter,
                         color: _getStatusColor(_selectedStatus),
+                        isDark: isDark,
                       ),
                     ],
                   ),
@@ -396,7 +728,7 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
               ),
               if (_hasActiveFilters())
                 Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(DesignTokens.space4),
                   child: SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -411,6 +743,68 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterSection({
+    required String title,
+    required IconData icon,
+    required String value,
+    required VoidCallback onTap,
+    Color? color,
+    required bool isDark,
+  }) {
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: DesignTokens.space2),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(DesignTokens.space2),
+              decoration: BoxDecoration(
+                color: (color ?? textPrimary).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+              child: Icon(
+                icon,
+                color: color ?? textPrimary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: DesignTokens.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: DesignTokens.bodyMedium.copyWith(
+                      color: textSecondary,
+                    ),
+                  ),
+                  Text(
+                    value,
+                    style: DesignTokens.bodyMedium.copyWith(
+                      color: color ?? textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: textSecondary,
+            ),
+          ],
         ),
       ),
     );
@@ -555,7 +949,6 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
       studentName: _searchQuery,
     );
 
-    // Enrich with student and session details
     final studentRepo = StudentRepository();
     final sessionRepo = SessionRepository();
     final subjectRepo = SubjectRepository();
@@ -583,41 +976,50 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
     return enriched;
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(Color textPrimary, Color textSecondary, bool isDark) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(DesignTokens.space6),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.assessment_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            Container(
+              padding: const EdgeInsets.all(DesignTokens.space6),
+              decoration: BoxDecoration(
+                color: (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant).withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusCircle),
+              ),
+              child: Icon(
+                Icons.assessment_outlined,
+                size: 64,
+                color: textSecondary,
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: DesignTokens.space6),
             Text(
               'No records found',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: DesignTokens.headlineSmall.copyWith(
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: DesignTokens.space3),
             Text(
               _hasActiveFilters()
                   ? 'Try adjusting your filters'
                   : 'Attendance records will appear here',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+              style: DesignTokens.bodyLarge.copyWith(
+                color: textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             if (_hasActiveFilters()) ...[
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
+              const SizedBox(height: DesignTokens.space6),
+              PillButton(
+                label: 'Clear All Filters',
+                icon: Icons.clear_all_rounded,
                 onPressed: _clearFilters,
-                icon: const Icon(Icons.clear_all_rounded),
-                label: const Text('Clear All Filters'),
+                isDark: isDark,
               ),
             ],
           ],
@@ -626,7 +1028,7 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
     );
   }
 
-  Widget _buildRecordCard(AttendanceWithDetails record) {
+  Widget _buildRecordCard(AttendanceWithDetails record, bool isDark) {
     Color statusColor;
     IconData statusIcon;
     String statusLabel;
@@ -648,98 +1050,98 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
         statusLabel = 'Absent';
         break;
       default:
-        statusColor = Theme.of(context).colorScheme.onSurfaceVariant;
+        statusColor = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
         statusIcon = Icons.help_outline_rounded;
         statusLabel = 'Unknown';
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    statusIcon,
-                    color: statusColor,
-                    size: 24,
-                  ),
+    return SoftCard(
+      isDark: isDark,
+      padding: const EdgeInsets.all(DesignTokens.space5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(DesignTokens.space2),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        record.student.fullName,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      Text(
-                        '${record.student.studentNumber} • ${record.subject?.name ?? 'Unknown Subject'}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
-                  ),
+                child: Icon(
+                  statusIcon,
+                  color: statusColor,
+                  size: 24,
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+              ),
+              const SizedBox(width: DesignTokens.space3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      child: Text(
-                        statusLabel,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: statusColor,
-                              fontWeight: FontWeight.w600,
-                            ),
+                    Text(
+                      record.student.fullName,
+                      style: DesignTokens.titleMedium.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
                     Text(
-                      _formatDateTime(record.attendance.scannedAt),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                      '${record.student.studentNumber} • ${record.subject?.name ?? 'Unknown Subject'}',
+                      style: DesignTokens.bodyMedium.copyWith(
+                        color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                      ),
                     ),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Source: ${record.attendance.source} • Session: ${record.session.date} ${record.session.startTime}-${record.session.endTime}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space3, vertical: DesignTokens.space1),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: DesignTokens.labelLarge.copyWith(
+                        color: statusColor,
+                        fontWeight: FontWeight.w600,
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: DesignTokens.space2),
+                  Text(
+                    _formatDateTime(record.attendance.scannedAt),
+                    style: DesignTokens.bodySmall.copyWith(
+                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: DesignTokens.space3),
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+              ),
+              const SizedBox(width: DesignTokens.space1),
+              Text(
+                'Source: ${record.attendance.source} • Session: ${record.session.date} ${record.session.startTime}-${record.session.endTime}',
+                style: DesignTokens.bodySmall.copyWith(
+                  color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -747,124 +1149,6 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> {
   String _formatDateTime(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     return '${date.day}/${date.month.toString().padLeft(2, '0')}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  void _exportCsv() async {
-    if (_isLoading) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final records = await _fetchFilteredRecords();
-
-      if (records.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No records to export')),
-          );
-        }
-        return;
-      }
-
-      final csv = _generateCsv(records);
-      final fileName = 'attendance_export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.csv';
-
-      // For now, just show the CSV in a dialog (in real app, use share_plus or path_provider to save)
-      if (mounted) {
-        _showCsvDialog(csv, fileName);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export failed: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  String _generateCsv(List<AttendanceWithDetails> records) {
-    final buffer = StringBuffer();
-    buffer.writeln('Student Number,Student Name,Subject,Section,Date,Session Time,Status,Scanned At,Source');
-
-    for (final record in records) {
-      final scannedAt = DateTime.fromMillisecondsSinceEpoch(record.attendance.scannedAt);
-      buffer.writeln(
-        '"${record.student.studentNumber}",'
-        '"${record.student.fullName}",'
-        '"${record.subject?.name ?? ''}",'
-        '"${record.subject?.section ?? ''}",'
-        '"${record.session.date}",'
-        '"${record.session.startTime}-${record.session.endTime}",'
-        '"${record.attendance.status}",'
-        '"${DateFormat('yyyy-MM-dd HH:mm:ss').format(scannedAt)}",'
-        '"${record.attendance.source}"'
-      );
-    }
-
-    return buffer.toString();
-  }
-
-  void _showCsvDialog(String csv, String fileName) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.download_rounded),
-            const SizedBox(width: 8),
-            Expanded(child: Text('Export CSV')),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$fileName (${csv.split('\n').length - 1} records)',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    csv,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              // In a real app, use share_plus or save to downloads
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('CSV export ready (implement save/share in production)')),
-              );
-            },
-            icon: const Icon(Icons.save_rounded),
-            label: const Text('Save'),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -880,4 +1164,59 @@ class AttendanceWithDetails {
     required this.session,
     this.subject,
   });
+}
+
+class _StyledSearchField extends StatelessWidget {
+  final String hintText;
+  final String? searchQuery;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  final bool isDark;
+
+  const _StyledSearchField({
+    required this.hintText,
+    required this.searchQuery,
+    required this.onChanged,
+    required this.onClear,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+
+    return TextField(
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: DesignTokens.bodyMedium.copyWith(color: textSecondary.withValues(alpha: 0.6)),
+        prefixIcon: const Icon(Icons.search, size: 20),
+        suffixIcon: searchQuery != null
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 20),
+                onPressed: onClear,
+              )
+            : null,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: DesignTokens.space4, vertical: DesignTokens.space3),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+          borderSide: BorderSide(color: outlineColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+          borderSide: BorderSide(color: outlineColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+          borderSide: BorderSide(color: BrandColors.primary, width: 2),
+        ),
+        filled: true,
+        fillColor: isDark ? BrandColors.darkBackground : BrandColors.lightBackground,
+      ),
+      style: DesignTokens.bodyMedium.copyWith(color: textPrimary),
+      onChanged: onChanged,
+    );
+  }
 }

@@ -28,61 +28,63 @@ class PinService {
   static const int maxFailedAttempts = 5;
   static const Duration lockoutDuration = Duration(seconds: 30);
 
-  final String _prefsFailedAttemptsKey = 'pin_failed_attempts';
-  final String _prefsLockoutUntilKey = 'pin_lockout_until';
+  /// Get the SharedPreferences keys for a specific user
+  String _prefsFailedAttemptsKey(int userId) => 'pin_failed_attempts_$userId';
+  String _prefsLockoutUntilKey(int userId) => 'pin_lockout_until_$userId';
 
-  /// Check if PIN is locked out
-  Future<PinLockoutState> getLockoutState() async {
+  /// Check if PIN is locked out for a specific user
+  Future<PinLockoutState> getLockoutState(int userId) async {
     final prefs = await SharedPreferences.getInstance();
-    final failedAttempts = prefs.getInt(_prefsFailedAttemptsKey) ?? 0;
-    final lockoutUntilMs = prefs.getInt(_prefsLockoutUntilKey);
+    final failedAttempts = prefs.getInt(_prefsFailedAttemptsKey(userId)) ?? 0;
+    final lockoutUntilMs = prefs.getInt(_prefsLockoutUntilKey(userId));
     final lockoutUntil = lockoutUntilMs != null
         ? DateTime.fromMillisecondsSinceEpoch(lockoutUntilMs)
         : null;
     return PinLockoutState(failedAttempts: failedAttempts, lockoutUntil: lockoutUntil);
   }
 
-  /// Record a failed PIN attempt
-  Future<PinLockoutState> recordFailedAttempt() async {
+  /// Record a failed PIN attempt for a specific user
+  Future<PinLockoutState> recordFailedAttempt(int userId) async {
     final prefs = await SharedPreferences.getInstance();
-    final state = await getLockoutState();
+    final state = await getLockoutState(userId);
     final newFailedAttempts = state.failedAttempts + 1;
 
     if (newFailedAttempts >= maxFailedAttempts) {
       final lockoutUntil = DateTime.now().add(lockoutDuration);
-      await prefs.setInt(_prefsFailedAttemptsKey, newFailedAttempts);
-      await prefs.setInt(_prefsLockoutUntilKey, lockoutUntil.millisecondsSinceEpoch);
+      await prefs.setInt(_prefsFailedAttemptsKey(userId), newFailedAttempts);
+      await prefs.setInt(_prefsLockoutUntilKey(userId), lockoutUntil.millisecondsSinceEpoch);
       return PinLockoutState(failedAttempts: newFailedAttempts, lockoutUntil: lockoutUntil);
     } else {
-      await prefs.setInt(_prefsFailedAttemptsKey, newFailedAttempts);
+      await prefs.setInt(_prefsFailedAttemptsKey(userId), newFailedAttempts);
       return PinLockoutState(failedAttempts: newFailedAttempts, lockoutUntil: null);
     }
   }
 
-  /// Reset failed attempts on successful PIN entry
-  Future<void> resetFailedAttempts() async {
+  /// Reset failed attempts on successful PIN entry for a specific user
+  Future<void> resetFailedAttempts(int userId) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefsFailedAttemptsKey);
-    await prefs.remove(_prefsLockoutUntilKey);
+    await prefs.remove(_prefsFailedAttemptsKey(userId));
+    await prefs.remove(_prefsLockoutUntilKey(userId));
   }
 
-  /// Verify PIN with lockout checking
+  /// Verify PIN with lockout checking for a specific user
   Future<PinVerifyResult> verifyPin({
     required String enteredPin,
     required String storedPinHash,
     required String storedPinSalt,
+    required int userId,
   }) async {
-    final lockoutState = await getLockoutState();
+    final lockoutState = await getLockoutState(userId);
     if (lockoutState.isLockedOut) {
       return PinVerifyResult.lockedOut(lockoutState.remainingLockout!);
     }
 
     final isValid = AuthService.verifyPin(enteredPin, storedPinHash, storedPinSalt);
     if (isValid) {
-      await resetFailedAttempts();
+      await resetFailedAttempts(userId);
       return PinVerifyResult.success();
     } else {
-      final newState = await recordFailedAttempt();
+      final newState = await recordFailedAttempt(userId);
       if (newState.isLockedOut) {
         return PinVerifyResult.lockedOut(newState.remainingLockout!);
       }
@@ -97,6 +99,7 @@ class PinService {
     required String confirmPin,
     required String storedPinHash,
     required String storedPinSalt,
+    required int userId,
   }) async {
     final newPinError = PinValidator.validatePin(newPin);
     if (newPinError != null) return PinChangeResult.error(newPinError);
@@ -104,21 +107,21 @@ class PinService {
     final confirmError = PinValidator.validateConfirmPin(newPin, confirmPin);
     if (confirmError != null) return PinChangeResult.error(confirmError);
 
-    final lockoutState = await getLockoutState();
+    final lockoutState = await getLockoutState(userId);
     if (lockoutState.isLockedOut) {
       return PinChangeResult.error('Too many failed attempts. Try again in ${lockoutState.remainingLockout!.inSeconds} seconds.');
     }
 
     final isValid = AuthService.verifyPin(currentPin, storedPinHash, storedPinSalt);
     if (!isValid) {
-      final newState = await recordFailedAttempt();
+      final newState = await recordFailedAttempt(userId);
       if (newState.isLockedOut) {
         return PinChangeResult.error('Too many failed attempts. Try again in ${newState.remainingLockout!.inSeconds} seconds.');
       }
       return PinChangeResult.error('Current PIN is incorrect. ${maxFailedAttempts - newState.failedAttempts} attempts remaining.');
     }
 
-    await resetFailedAttempts();
+    await resetFailedAttempts(userId);
     final pinHash = AuthService.generatePinHash(newPin);
     return PinChangeResult.success(pinHash['hash']!, pinHash['salt']!);
   }
@@ -127,6 +130,7 @@ class PinService {
   Future<PinSetupResult> setupPin({
     required String newPin,
     required String confirmPin,
+    required int userId,
   }) async {
     final newPinError = PinValidator.validatePin(newPin);
     if (newPinError != null) return PinSetupResult.error(newPinError);
@@ -134,6 +138,8 @@ class PinService {
     final confirmError = PinValidator.validateConfirmPin(newPin, confirmPin);
     if (confirmError != null) return PinSetupResult.error(confirmError);
 
+    // Reset any existing lockout for this user
+    await resetFailedAttempts(userId);
     final pinHash = AuthService.generatePinHash(newPin);
     return PinSetupResult.success(pinHash['hash']!, pinHash['salt']!);
   }

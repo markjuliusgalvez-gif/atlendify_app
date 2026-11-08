@@ -14,7 +14,7 @@ class UserSession {
   bool get isStudent => user.role == 'student';
 }
 
-/// Auth state
+/// Auth state - explicit states for proper navigation
 sealed class AuthState {
   const AuthState();
 }
@@ -29,7 +29,17 @@ class AuthLoading extends AuthState {
 
 class AuthAuthenticated extends AuthState {
   final UserSession session;
-  const AuthAuthenticated(this.session);
+  final bool pinUnlocked; // true when admin has entered PIN and dashboard is unlocked
+  const AuthAuthenticated(this.session, {this.pinUnlocked = false});
+
+  bool get isAdmin => session.isAdmin;
+  bool get isStudent => session.isStudent;
+  bool get isAdminLocked => session.isAdmin && !pinUnlocked;
+  bool get isAdminUnlocked => session.isAdmin && pinUnlocked;
+
+  AuthAuthenticated copyWith({bool? pinUnlocked}) {
+    return AuthAuthenticated(session, pinUnlocked: pinUnlocked ?? this.pinUnlocked);
+  }
 }
 
 class AuthUnauthenticated extends AuthState {
@@ -62,7 +72,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           if (user.role == 'student') {
             student = await _studentRepo.getByUserId(userId);
           }
-          state = AuthAuthenticated(UserSession(user: user, student: student));
+          state = AuthAuthenticated(UserSession(user: user, student: student), pinUnlocked: false);
           return;
         }
       }
@@ -97,7 +107,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('user_id', user.id!);
 
-      state = AuthAuthenticated(UserSession(user: user, student: student));
+      state = AuthAuthenticated(UserSession(user: user, student: student), pinUnlocked: false);
     } catch (e) {
       state = AuthError('Login failed: $e');
     }
@@ -172,7 +182,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         if (role == 'student') {
           student = await _studentRepo.getByStudentNumber(studentNumber!);
         }
-        state = AuthAuthenticated(UserSession(user: createdUser, student: student));
+        state = AuthAuthenticated(UserSession(user: createdUser, student: student), pinUnlocked: false);
       } else {
         state = const AuthError('Registration failed');
       }
@@ -181,10 +191,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> logout() async {
+  /// Unlock PIN for admin (called after successful PIN verification)
+  void unlockPin() {
+    if (state is AuthAuthenticated) {
+      final current = state as AuthAuthenticated;
+      if (current.isAdmin) {
+        state = current.copyWith(pinUnlocked: true);
+      }
+    }
+  }
+
+  /// Lock PIN for admin (called when app backgrounds or "Lock dashboard" pressed)
+  void lockPin() {
+    if (state is AuthAuthenticated) {
+      final current = state as AuthAuthenticated;
+      if (current.isAdmin) {
+        state = current.copyWith(pinUnlocked: false);
+      }
+    }
+  }
+
+  /// Shared sign-out function - used by logout, Back to Login, etc.
+  Future<void> signOut() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_id');
     state = const AuthUnauthenticated();
+  }
+
+  Future<void> logout() async {
+    await signOut();
   }
 }
 
