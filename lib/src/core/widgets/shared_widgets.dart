@@ -337,7 +337,7 @@ class _MonthPillsState extends State<MonthPills> with SingleTickerProviderStateM
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space2),
             itemCount: widget.months.length,
-            separatorBuilder: (_, _) => const SizedBox(width: DesignTokens.space2),
+            separatorBuilder: (context, index) => const SizedBox(width: DesignTokens.space2),
             itemBuilder: (context, index) {
               final month = widget.months[index];
               final isSelected = index == widget.selectedIndex;
