@@ -8,7 +8,7 @@ environment:
 
 dependencies:
   flutter:
-    sdk: '>=3.0.0 <4.0.0'
+    sdk: flutter
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
   go_router: ^14.2.0
@@ -32,10 +32,10 @@ dependencies:
 
 dev_dependencies:
   flutter_test:
-    sdk: '>=3.0.0 <4.0.0'
+    sdk: flutter
   flutter_lints: ^6.0.0
   integration_test:
-    sdk: '>=3.0.0 <4.0.0'
+    sdk: flutter
   mockito: ^5.7.0
   build_runner: ^2.15.1
 
