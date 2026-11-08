@@ -77,19 +77,23 @@ jobs:
           pod install
 
       - name: Build unsigned IPA
-        run: flutter build ipa --release --no-tree-shake-icons --no-codesign
+        run: |
+          flutter build ios --release --no-codesign
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -r atlendify-unsigned.ipa Payload
 
       - name: Verify IPA output
         run: |
           echo "Checking for IPA files..."
-          find build/ios -name "*.ipa" -type f 2>/dev/null | head -20
-          ls -la build/ios/ipa/ 2>/dev/null || echo "No ipa directory found"
+          ls -la build/ios/ipa/
 
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: atlendify-unsigned-ipa
-          path: build/ios/ipa/*.ipa
+          path: build/ios/ipa/atlendify-unsigned.ipa
           retention-days: 30
 
   create-release:
@@ -116,7 +120,7 @@ jobs:
         with:
           files: |
             artifacts/android/app-release.apk
-            artifacts/ios/*.ipa
+            artifacts/ios/atlendify-unsigned.ipa
           tag_name: ${{ github.ref_name }}
           name: Atlendify ${{ github.ref_name }} - Attendance Management System
           body: |
@@ -164,7 +168,7 @@ jobs:
             | Platform | File | Install |
             |----------|------|---------|
             | **Android** | `app-release.apk` | Enable "Unknown sources" → Install |
-            | **iOS** | `app-release.ipa` | Install via TestFlight or AltStore (unsigned) |
+            | **iOS** | `atlendify-unsigned.ipa` | Install via TestFlight or AltStore (unsigned) |
 
             ## 🚀 Quick Start
 
