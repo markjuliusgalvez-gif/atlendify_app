@@ -32,6 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 !/build/ios_ipa/
+!/build/ios_ipa/*
 /coverage/
 
 # Symbolication related
