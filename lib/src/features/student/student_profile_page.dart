@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
-import '../../core/theme/brand_colors.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/theme_provider.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
@@ -34,19 +32,17 @@ class _StudentProfilePageState extends ConsumerState<StudentProfilePage> {
   }
 
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
-    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
 
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: bgColor,
+        backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(color: outlineColor, width: 1),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
         child: Padding(
           padding: const EdgeInsets.all(DesignTokens.space5),
@@ -56,16 +52,16 @@ class _StudentProfilePageState extends ConsumerState<StudentProfilePage> {
             children: [
               Text(
                 'Logout',
-                style: DesignTokens.headlineSmall.copyWith(
-                  color: textPrimary,
+                style: textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: DesignTokens.space2),
               Text(
                 'Are you sure you want to logout?',
-                style: DesignTokens.bodyMedium.copyWith(
-                  color: textSecondary,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: DesignTokens.space4),
@@ -90,7 +86,7 @@ class _StudentProfilePageState extends ConsumerState<StudentProfilePage> {
                         ref.read(authProvider.notifier).logout();
                       },
                       isDark: isDark,
-                      backgroundColor: BrandColors.absentRed,
+                      backgroundColor: const Color(0xFFD0021B),
                     ),
                   ),
                 ],
@@ -106,28 +102,26 @@ class _StudentProfilePageState extends ConsumerState<StudentProfilePage> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final session = authState is AuthAuthenticated ? authState.session : null;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: colorScheme.surface,
       extendBody: true,
       body: session != null
-          ? _buildProfileContent(session, context, textPrimary, textSecondary, isDark)
+          ? _buildProfileContent(session, context, colorScheme, textTheme)
           : Center(
               child: Text(
                 'Not logged in',
-                style: DesignTokens.bodyLarge.copyWith(color: textSecondary),
+                style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ),
-      bottomNavigationBar: _buildFloatingNavBar(isDark),
+      bottomNavigationBar: _buildGlassNavBar(colorScheme),
     );
   }
 
-  Widget _buildFloatingNavBar(bool isDark) {
-    return FloatingNavBar(
+  Widget _buildGlassNavBar(ColorScheme colorScheme) {
+    return GlassNavBar(
       selectedIndex: _selectedIndex,
       onDestinationSelected: _onTabSelected,
       destinations: const [
@@ -147,118 +141,123 @@ class _StudentProfilePageState extends ConsumerState<StudentProfilePage> {
           label: 'Profile',
         ),
       ],
-      isDark: isDark,
-      accentColor: BrandColors.primary,
+      isDark: Theme.of(context).brightness == Brightness.dark,
+      accentColor: colorScheme.primary,
     );
   }
 
-  Widget _buildProfileContent(UserSession session, BuildContext context, Color textPrimary, Color textSecondary, bool isDark) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        DesignTokens.space6,
-        DesignTokens.space4,
-        DesignTokens.space6,
-        DesignTokens.space6 + 100,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionTitle(
-            title: 'Account Information',
-            isDark: isDark,
-          ),
-          const SizedBox(height: DesignTokens.space3),
-          SoftCard(
-            isDark: isDark,
-            child: Column(
-              children: [
-                _ProfileInfoRow(
-                  label: 'Name',
-                  value: session.student?.fullName ?? 'N/A',
-                  icon: Icons.person_rounded,
-                  isDark: isDark,
-                ),
-                const Divider(height: 1),
-                _ProfileInfoRow(
-                  label: 'Student Number',
-                  value: session.student?.studentNumber ?? 'N/A',
-                  icon: Icons.badge_rounded,
-                  isDark: isDark,
-                ),
-                const Divider(height: 1),
-                _ProfileInfoRow(
-                  label: 'Email',
-                  value: session.user.email,
-                  icon: Icons.email_rounded,
-                  isDark: isDark,
-                ),
-                const Divider(height: 1),
-                _ProfileInfoRow(
-                  label: 'Role',
-                  value: 'Student',
-                  icon: Icons.school_rounded,
-                  isDark: isDark,
-                ),
-              ],
+  Widget _buildProfileContent(UserSession session, BuildContext context, ColorScheme colorScheme, TextTheme textTheme) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SafeArea(
+      top: true,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          DesignTokens.space6,
+          DesignTokens.space4,
+          DesignTokens.space6,
+          DesignTokens.space6 + 100,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SectionTitle(
+              title: 'Account Information',
+              isDark: isDark,
             ),
-          ),
-          const SizedBox(height: DesignTokens.space4),
-          SectionTitle(
-            title: 'Settings',
-            isDark: isDark,
-          ),
-          const SizedBox(height: DesignTokens.space3),
-          SoftTile(
-            isDark: isDark,
-            onTap: () {
-              // Theme toggle handled by theme provider
-            },
-            child: Row(
-              children: [
-                const Icon(Icons.color_lens_rounded, size: 20),
-                const SizedBox(width: DesignTokens.space3),
-                Text(
-                  'Theme Mode',
-                  style: DesignTokens.bodyMedium.copyWith(
-                    color: textPrimary,
-                    fontWeight: FontWeight.w500,
+            const SizedBox(height: DesignTokens.space3),
+            SoftCard(
+              isDark: isDark,
+              child: Column(
+                children: [
+                  _ProfileInfoRow(
+                    label: 'Name',
+                    value: session.student?.fullName ?? 'N/A',
+                    icon: Icons.person_rounded,
+                    colorScheme: colorScheme,
+                    textTheme: textTheme,
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  isDark ? 'Dark' : 'Light',
-                  style: DesignTokens.bodyMedium.copyWith(
-                    color: BrandColors.primary,
-                    fontWeight: FontWeight.w600,
+                  Divider(height: 1, color: colorScheme.outlineVariant),
+                  _ProfileInfoRow(
+                    label: 'Student Number',
+                    value: session.student?.studentNumber ?? 'N/A',
+                    icon: Icons.badge_rounded,
+                    colorScheme: colorScheme,
+                    textTheme: textTheme,
                   ),
-                ),
-              ],
+                  Divider(height: 1, color: colorScheme.outlineVariant),
+                  _ProfileInfoRow(
+                    label: 'Email',
+                    value: session.user.email,
+                    icon: Icons.email_rounded,
+                    colorScheme: colorScheme,
+                    textTheme: textTheme,
+                  ),
+                  Divider(height: 1, color: colorScheme.outlineVariant),
+                  _ProfileInfoRow(
+                    label: 'Role',
+                    value: 'Student',
+                    icon: Icons.school_rounded,
+                    colorScheme: colorScheme,
+                    textTheme: textTheme,
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: DesignTokens.space3),
-          SoftTile(
-            isDark: isDark,
-            onTap: () => _showLogoutDialog(context, ref),
-            child: Row(
-              children: [
-                const Icon(Icons.logout_rounded, size: 20),
-                const SizedBox(width: DesignTokens.space3),
-                Text(
-                  'Logout',
-                  style: DesignTokens.bodyMedium.copyWith(
-                    color: BrandColors.absentRed,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            const SizedBox(height: DesignTokens.space4),
+            SectionTitle(
+              title: 'Settings',
+              isDark: isDark,
             ),
-          ),
-          const SizedBox(height: DesignTokens.space6),
-          // Theme toggle button at bottom for easy access
-          Center(
-            child: ThemeToggleButton(),
-          ),
-        ],
+            const SizedBox(height: DesignTokens.space3),
+            SoftTile(
+              isDark: isDark,
+              onTap: () {
+                // Theme toggle handled by theme provider
+              },
+              child: Row(
+                children: [
+                  Icon(Icons.color_lens_rounded, size: 20, color: colorScheme.onSurfaceVariant),
+                  const SizedBox(width: DesignTokens.space3),
+                  Text(
+                    'Theme Mode',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    isDark ? 'Dark' : 'Light',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: DesignTokens.space3),
+            SoftTile(
+              isDark: isDark,
+              onTap: () => _showLogoutDialog(context, ref),
+              child: Row(
+                children: [
+                  Icon(Icons.logout_rounded, size: 20, color: const Color(0xFFD0021B)),
+                  const SizedBox(width: DesignTokens.space3),
+                  Text(
+                    'Logout',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFFD0021B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: DesignTokens.space6),
+          ],
+        ),
       ),
     );
   }
@@ -268,20 +267,19 @@ class _ProfileInfoRow extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
-  final bool isDark;
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
 
   const _ProfileInfoRow({
     required this.label,
     required this.value,
     required this.icon,
-    required this.isDark,
+    required this.colorScheme,
+    required this.textTheme,
   });
 
   @override
   Widget build(BuildContext context) {
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: DesignTokens.space4,
@@ -294,12 +292,12 @@ class _ProfileInfoRow extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: BrandColors.primary.withValues(alpha: 0.12),
+              color: colorScheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(DesignTokens.radiusCircle),
             ),
             child: Icon(
               icon,
-              color: BrandColors.primary,
+              color: colorScheme.primary,
               size: 20,
             ),
           ),
@@ -310,16 +308,16 @@ class _ProfileInfoRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: DesignTokens.labelMedium.copyWith(
-                    color: textSecondary,
+                  style: textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: DesignTokens.space1),
                 Text(
                   value,
-                  style: DesignTokens.bodyMedium.copyWith(
-                    color: textPrimary,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,

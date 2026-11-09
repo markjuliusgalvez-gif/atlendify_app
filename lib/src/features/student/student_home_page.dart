@@ -4,9 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/router/app_router.dart';
 import '../../core/services/qr_service.dart';
-import '../../core/theme/brand_colors.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/theme_provider.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
@@ -24,7 +22,6 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
   late Animation<double> _qrScaleAnimation;
   late AnimationController _entranceController;
   late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
@@ -38,16 +35,12 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
       curve: Curves.elasticOut,
     );
     _entranceController = AnimationController(
-      duration: DesignTokens.durationSlow,
+      duration: DesignTokens.durationNormal,
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve),
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve));
     _generateQrCode();
     _entranceController.forward();
   }
@@ -106,7 +99,8 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
   }
 
   Widget _buildQrSheet(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final authState = ref.read(authProvider);
     final student = authState is AuthAuthenticated ? authState.session.student : null;
 
@@ -116,10 +110,10 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
       minChildSize: 0.5,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
-          color: isDark ? BrandColors.darkSurface : BrandColors.lightSurface,
+          color: colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusDialog)),
           border: Border.all(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            color: colorScheme.outlineVariant,
             width: 1,
           ),
         ),
@@ -131,7 +125,7 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+                color: colorScheme.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -145,9 +139,9 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                     children: [
                       Text(
                         'Today\'s QR Code',
-                        style: DesignTokens.headlineSmall.copyWith(
+                        style: textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       IconButton(
@@ -159,8 +153,8 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                   const SizedBox(height: DesignTokens.space1),
                   Text(
                     'Scan this code to mark your attendance',
-                    style: DesignTokens.bodyMedium.copyWith(
-                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -177,7 +171,7 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                       ScaleTransition(
                         scale: _qrScaleAnimation,
                         child: SoftCard(
-                          isDark: isDark,
+                          isDark: Theme.of(context).brightness == Brightness.dark,
                           padding: const EdgeInsets.all(DesignTokens.space4),
                           child: QrImageView(
                             data: _qrData!,
@@ -186,11 +180,11 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                             backgroundColor: Colors.white,
                             eyeStyle: QrEyeStyle(
                               eyeShape: QrEyeShape.square,
-                              color: BrandColors.primary,
+                              color: colorScheme.primary,
                             ),
                             dataModuleStyle: QrDataModuleStyle(
                               dataModuleShape: QrDataModuleShape.square,
-                              color: BrandColors.primary,
+                              color: colorScheme.primary,
                             ),
                           ),
                         ),
@@ -198,22 +192,22 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                       const SizedBox(height: DesignTokens.space4),
                       // Student info card
                       SoftCard(
-                        isDark: isDark,
+                        isDark: Theme.of(context).brightness == Brightness.dark,
                         padding: const EdgeInsets.all(DesignTokens.space4),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Student Information',
-                              style: DesignTokens.titleMedium.copyWith(
+                              style: textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                                color: colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: DesignTokens.space3),
-                            _buildInfoRow('Name', student?.fullName ?? 'N/A', context, isDark),
-                            _buildInfoRow('Student Number', student?.studentNumber ?? 'N/A', context, isDark),
-                            _buildInfoRow('Date', _formatDate(DateTime.now()), context, isDark),
+                            _buildInfoRow('Name', student?.fullName ?? 'N/A', colorScheme, textTheme),
+                            _buildInfoRow('Student Number', student?.studentNumber ?? 'N/A', colorScheme, textTheme),
+                            _buildInfoRow('Date', _formatDate(DateTime.now()), colorScheme, textTheme),
                           ],
                         ),
                       ),
@@ -229,7 +223,7 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: const Text('QR code refreshed'),
-                                backgroundColor: BrandColors.primary,
+                                backgroundColor: colorScheme.primary,
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
@@ -237,12 +231,12 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                               ),
                             );
                           },
-                          isDark: isDark,
+                          isDark: Theme.of(context).brightness == Brightness.dark,
                         ),
                       ),
                     ] else ...[
-                      const Center(
-                        child: CircularProgressIndicator(),
+                      Center(
+                        child: CircularProgressIndicator(color: colorScheme.primary),
                       ),
                     ],
                   ],
@@ -255,7 +249,7 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
     );
   }
 
-  Widget _buildInfoRow(String label, String value, BuildContext context, bool isDark) {
+  Widget _buildInfoRow(String label, String value, ColorScheme colorScheme, TextTheme textTheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: DesignTokens.space1),
       child: Row(
@@ -265,17 +259,17 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
             width: 120,
             child: Text(
               label,
-              style: DesignTokens.bodyMedium.copyWith(
-                color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: DesignTokens.bodyMedium.copyWith(
+              style: textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w500,
-                color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                color: colorScheme.onSurface,
               ),
             ),
           ),
@@ -292,46 +286,41 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final session = authState is AuthAuthenticated ? authState.session : null;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: colorScheme.surface,
       extendBody: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: session?.student != null
-            ? _buildProfileMenu(session!, context, textPrimary, textSecondary, isDark)
+            ? _buildProfileMenu(session!, context, colorScheme, textTheme)
             : null,
         title: Text(
           session?.student?.fullName ?? 'Home',
-          style: DesignTokens.headlineSmall.copyWith(
+          style: textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
-            color: textPrimary,
+            color: colorScheme.onSurface,
           ),
         ),
-        actions: [
-          const ThemeToggleButton(),
-        ],
       ),
       body: session != null
-          ? _buildHomeContent(session, textPrimary, textSecondary, isDark)
+          ? _buildHomeContent(session, colorScheme, textTheme)
           : Center(
               child: Text(
                 'Not logged in',
-                style: DesignTokens.bodyLarge.copyWith(color: textSecondary),
+                style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ),
-      bottomNavigationBar: _buildFloatingNavBar(isDark),
+      bottomNavigationBar: _buildGlassNavBar(colorScheme),
     );
   }
 
-  Widget _buildFloatingNavBar(bool isDark) {
-    return FloatingNavBar(
+  Widget _buildGlassNavBar(ColorScheme colorScheme) {
+    return GlassNavBar(
       selectedIndex: _selectedIndex,
       onDestinationSelected: _onTabSelected,
       destinations: const [
@@ -351,19 +340,19 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
           label: 'Profile',
         ),
       ],
-      isDark: isDark,
-      accentColor: BrandColors.primary,
+      isDark: Theme.of(context).brightness == Brightness.dark,
+      accentColor: colorScheme.primary,
     );
   }
 
-  Widget _buildHomeContent(UserSession session, Color textPrimary, Color textSecondary, bool isDark) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
+  Widget _buildHomeContent(UserSession session, ColorScheme colorScheme, TextTheme textTheme) {
+    return SafeArea(
+      top: true,
+      child: FadeTransition(
+        opacity: _fadeAnimation,
         child: RefreshIndicator(
           onRefresh: () async => _generateQrCode(),
-          color: BrandColors.primary,
+          color: colorScheme.primary,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(
@@ -377,7 +366,7 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
               children: [
                 // Quick QR access card with staggered entrance
                 _buildStaggeredItem(0, SoftTile(
-                  isDark: isDark,
+                  isDark: Theme.of(context).brightness == Brightness.dark,
                   onTap: _showQrSheet,
                   padding: const EdgeInsets.all(DesignTokens.space5),
                   child: Row(
@@ -385,13 +374,13 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                       Container(
                         padding: const EdgeInsets.all(DesignTokens.space4),
                         decoration: BoxDecoration(
-                          color: BrandColors.primary.withValues(alpha: 0.12),
+                          color: colorScheme.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
                         ),
                         child: Icon(
                           Icons.qr_code_rounded,
                           size: 32,
-                          color: BrandColors.primary,
+                          color: colorScheme.primary,
                         ),
                       ),
                       const SizedBox(width: DesignTokens.space4),
@@ -401,22 +390,22 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                           children: [
                             Text(
                               'My QR Code',
-                              style: DesignTokens.titleLarge.copyWith(
+                              style: textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: textPrimary,
+                                color: colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: DesignTokens.space1),
                             Text(
                               'Tap to show your daily attendance code',
-                              style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                             ),
                           ],
                         ),
                       ),
                       Icon(
                         Icons.chevron_right_rounded,
-                        color: textSecondary,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ],
                   ),
@@ -426,28 +415,28 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                 // Today's sessions
                 Text(
                   'Today\'s Sessions',
-                  style: DesignTokens.headlineSmall.copyWith(
+                  style: textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: textPrimary,
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: DesignTokens.space3),
 
                 // TODO: Fetch actual sessions from database
-                _buildEmptySessions(context, textPrimary, textSecondary, isDark),
+                _buildEmptySessions(colorScheme, textTheme),
 
                 const SizedBox(height: DesignTokens.space5),
 
                 // Quick stats
                 Text(
                   'Quick Stats',
-                  style: DesignTokens.headlineSmall.copyWith(
+                  style: textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: textPrimary,
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: DesignTokens.space3),
-                _buildStatsGrid(context, isDark, textSecondary),
+                _buildStatsGrid(colorScheme, textTheme),
               ],
             ),
           ),
@@ -456,36 +445,36 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
     );
   }
 
-  Widget _buildEmptySessions(BuildContext context, Color textPrimary, Color textSecondary, bool isDark) {
+  Widget _buildEmptySessions(ColorScheme colorScheme, TextTheme textTheme) {
     return SoftCard(
-      isDark: isDark,
+      isDark: Theme.of(context).brightness == Brightness.dark,
       padding: const EdgeInsets.all(DesignTokens.space5),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(DesignTokens.space3),
             decoration: BoxDecoration(
-              color: (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant).withValues(alpha: 0.5),
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(DesignTokens.radiusCircle),
             ),
             child: Icon(
               Icons.event_busy_rounded,
               size: 48,
-              color: textSecondary,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: DesignTokens.space3),
           Text(
             'No sessions today',
-            style: DesignTokens.titleMedium.copyWith(
+            style: textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: textPrimary,
+              color: colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: DesignTokens.space1),
           Text(
             'Your attendance sessions will appear here',
-            style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ],
@@ -493,7 +482,7 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
     );
   }
 
-  Widget _buildStatsGrid(BuildContext context, bool isDark, Color textSecondary) {
+  Widget _buildStatsGrid(ColorScheme colorScheme, TextTheme textTheme) {
     return GridView.count(
       crossAxisCount: 3,
       shrinkWrap: true,
@@ -502,22 +491,22 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
       mainAxisSpacing: DesignTokens.space3,
       childAspectRatio: 1.0,
       children: [
-        _buildStatCard('Present', '0', BrandColors.presentGreen, context, isDark, textSecondary),
-        _buildStatCard('Late', '0', BrandColors.lateAmber, context, isDark, textSecondary),
-        _buildStatCard('Absent', '0', BrandColors.absentRed, context, isDark, textSecondary),
+        _buildStatCard('Present', '0', const Color(0xFF1B8A3A), colorScheme, textTheme),
+        _buildStatCard('Late', '0', const Color(0xFFF5A623), colorScheme, textTheme),
+        _buildStatCard('Absent', '0', const Color(0xFFD0021B), colorScheme, textTheme),
       ],
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color, BuildContext context, bool isDark, Color textSecondary) {
+  Widget _buildStatCard(String label, String value, Color color, ColorScheme colorScheme, TextTheme textTheme) {
     return SoftCard(
-      isDark: isDark,
+      isDark: Theme.of(context).brightness == Brightness.dark,
       padding: const EdgeInsets.all(DesignTokens.space4),
       child: Column(
         children: [
           Text(
             value,
-            style: DesignTokens.headlineMedium.copyWith(
+            style: textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w700,
               color: color,
             ),
@@ -525,8 +514,8 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
           const SizedBox(height: DesignTokens.space1),
           Text(
             label,
-            style: DesignTokens.bodyMedium.copyWith(
-              color: textSecondary,
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -537,9 +526,8 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
   Widget _buildProfileMenu(
     UserSession session,
     BuildContext context,
-    Color textPrimary,
-    Color textSecondary,
-    bool isDark,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
   ) {
     final student = session.student!;
     final user = session.user;
@@ -551,10 +539,10 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
             context.go(AppRoutes.studentProfile);
             break;
           case 'change_avatar':
-            _showChangeAvatarDialog(context, isDark, textPrimary, textSecondary);
+            _showChangeAvatarDialog(context, colorScheme, textTheme);
             break;
           case 'logout':
-            _showLogoutDialog(context, ref);
+            _showLogoutDialog(context, ref, colorScheme, textTheme);
             break;
         }
       },
@@ -567,10 +555,10 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
             width: double.infinity,
             padding: const EdgeInsets.all(DesignTokens.space4),
             decoration: BoxDecoration(
-              color: isDark ? BrandColors.darkSurface : BrandColors.lightSurface,
+              color: colorScheme.surfaceContainerHighest,
               border: Border(
                 bottom: BorderSide(
-                  color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+                  color: colorScheme.outlineVariant,
                   width: 1,
                 ),
               ),
@@ -579,14 +567,14 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: BrandColors.primary.withValues(alpha: 0.12),
+                  backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
                   child: Text(
                     student.fullName.isNotEmpty
                         ? student.fullName[0].toUpperCase()
                         : '?',
-                    style: DesignTokens.headlineSmall.copyWith(
+                    style: textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: BrandColors.primary,
+                      color: colorScheme.primary,
                     ),
                   ),
                 ),
@@ -597,25 +585,25 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                     children: [
                       Text(
                         student.fullName,
-                        style: DesignTokens.bodyLarge.copyWith(
+                        style: textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: textPrimary,
+                          color: colorScheme.onSurface,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: DesignTokens.space1),
                       Text(
                         student.studentNumber,
-                        style: DesignTokens.bodySmall.copyWith(
-                          color: textSecondary,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: DesignTokens.space1),
                       Text(
                         user.email,
-                        style: DesignTokens.bodySmall.copyWith(
-                          color: textSecondary,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -633,13 +621,13 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
               Icon(
                 Icons.person_rounded,
                 size: 20,
-                color: textSecondary,
+                color: colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: DesignTokens.space3),
               Text(
                 'My Profile',
-                style: DesignTokens.bodyMedium.copyWith(
-                  color: textPrimary,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
                 ),
               ),
             ],
@@ -652,13 +640,13 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
               Icon(
                 Icons.camera_alt_rounded,
                 size: 20,
-                color: textSecondary,
+                color: colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: DesignTokens.space3),
               Text(
                 'Change Profile Picture',
-                style: DesignTokens.bodyMedium.copyWith(
-                  color: textPrimary,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
                 ),
               ),
             ],
@@ -672,13 +660,13 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
               Icon(
                 Icons.logout_rounded,
                 size: 20,
-                color: BrandColors.absentRed,
+                color: const Color(0xFFD0021B),
               ),
               const SizedBox(width: DesignTokens.space3),
               Text(
                 'Logout',
-                style: DesignTokens.bodyMedium.copyWith(
-                  color: BrandColors.absentRed,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFFD0021B),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -690,14 +678,14 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
         padding: const EdgeInsets.all(DesignTokens.space2),
         child: CircleAvatar(
           radius: 18,
-          backgroundColor: BrandColors.primary.withValues(alpha: 0.12),
+          backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
           child: Text(
             student.fullName.isNotEmpty
                 ? student.fullName[0].toUpperCase()
                 : '?',
-            style: DesignTokens.titleMedium.copyWith(
+            style: textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
-              color: BrandColors.primary,
+              color: colorScheme.primary,
             ),
           ),
         ),
@@ -707,23 +695,21 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
 
   void _showChangeAvatarDialog(
     BuildContext context,
-    bool isDark,
-    Color textPrimary,
-    Color textSecondary,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
   ) {
     final student = ref.read(authProvider);
     if (student is! AuthAuthenticated) return;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: isDark ? BrandColors.darkSurface : BrandColors.lightSurface,
+        backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: 1,
-          ),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
         child: Padding(
           padding: const EdgeInsets.all(DesignTokens.space5),
@@ -733,28 +719,28 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
             children: [
               Text(
                 'Change Profile Picture',
-                style: DesignTokens.headlineSmall.copyWith(
-                  color: textPrimary,
+                style: textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: DesignTokens.space2),
               Text(
                 'Select a new profile picture',
-                style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: DesignTokens.space4),
               Center(
                 child: CircleAvatar(
                   radius: 48,
-                  backgroundColor: BrandColors.primary.withValues(alpha: 0.12),
+                  backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
                   child: Text(
                     student.session.student!.fullName.isNotEmpty
                         ? student.session.student!.fullName[0].toUpperCase()
                         : '?',
-                    style: DesignTokens.headlineMedium.copyWith(
+                    style: textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: BrandColors.primary,
+                      color: colorScheme.primary,
                     ),
                   ),
                 ),
@@ -771,7 +757,7 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: const Text('Gallery picker coming soon'),
-                            backgroundColor: BrandColors.primary,
+                            backgroundColor: colorScheme.primary,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
@@ -793,7 +779,7 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: const Text('Camera coming soon'),
-                            backgroundColor: BrandColors.primary,
+                            backgroundColor: colorScheme.primary,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
@@ -824,20 +810,21 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
     );
   }
 
-  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+  void _showLogoutDialog(
+    BuildContext context,
+    WidgetRef ref,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
-    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
 
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: bgColor,
+        backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(color: outlineColor, width: 1),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
         child: Padding(
           padding: const EdgeInsets.all(DesignTokens.space5),
@@ -847,16 +834,16 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
             children: [
               Text(
                 'Logout',
-                style: DesignTokens.headlineSmall.copyWith(
-                  color: textPrimary,
+                style: textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: DesignTokens.space2),
               Text(
                 'Are you sure you want to logout?',
-                style: DesignTokens.bodyMedium.copyWith(
-                  color: textSecondary,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: DesignTokens.space4),
@@ -881,7 +868,7 @@ class _StudentHomePageState extends ConsumerState<StudentHomePage> with TickerPr
                         ref.read(authProvider.notifier).logout();
                       },
                       isDark: isDark,
-                      backgroundColor: BrandColors.absentRed,
+                      backgroundColor: const Color(0xFFD0021B),
                     ),
                   ),
                 ],

@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
-import '../../core/theme/brand_colors.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/theme_provider.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
@@ -19,7 +17,7 @@ class AdminHomePage extends ConsumerStatefulWidget {
 class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   late AnimationController _entranceController;
-  late Animation<double> _staggerAnimation;
+  late Animation<double> _fadeAnimation;
 
   void _onTabSelected(int index) {
     setState(() => _selectedIndex = index);
@@ -40,10 +38,10 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
   void initState() {
     super.initState();
     _entranceController = AnimationController(
-      duration: DesignTokens.durationSlow,
+      duration: DesignTokens.durationNormal,
       vsync: this,
     );
-    _staggerAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve),
     );
     _entranceController.forward();
@@ -58,27 +56,31 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: colorScheme.surface,
       extendBody: true,
-      body: authState is AuthAuthenticated
-          ? _buildDashboardContent()
-          : Center(
-              child: Text(
-                'Not logged in',
-                style: DesignTokens.bodyLarge.copyWith(color: textSecondary),
+      body: SafeArea(
+        top: true,
+        child: authState is AuthAuthenticated
+            ? _buildDashboardContent()
+            : Center(
+                child: Text(
+                  'Not logged in',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
-            ),
-      bottomNavigationBar: _buildFloatingNavBar(isDark),
+      ),
+      bottomNavigationBar: _buildGlassNavBar(),
     );
   }
 
-  Widget _buildFloatingNavBar(bool isDark) {
-    return FloatingNavBar(
+  Widget _buildGlassNavBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GlassNavBar(
       selectedIndex: _selectedIndex,
       onDestinationSelected: _onTabSelected,
       destinations: const [
@@ -98,8 +100,8 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
           label: 'Settings',
         ),
       ],
-      isDark: isDark,
-      accentColor: BrandColors.primary,
+      isDark: Theme.of(context).brightness == Brightness.dark,
+      accentColor: colorScheme.primary,
     );
   }
 
@@ -107,21 +109,20 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
     return FutureBuilder<Map<String, dynamic>>(
       future: _fetchDashboardStats(),
       builder: (context, snapshot) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-        final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+        final colorScheme = Theme.of(context).colorScheme;
+        final textTheme = Theme.of(context).textTheme;
 
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: BrandColors.primary),
+                CircularProgressIndicator(color: colorScheme.primary),
                 const SizedBox(height: DesignTokens.space4),
                 Text(
                   'Loading dashboard...',
-                  style: DesignTokens.bodyMedium.copyWith(
-                    color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -139,20 +140,20 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                   Icon(
                     Icons.error_outline_rounded,
                     size: 48,
-                    color: BrandColors.absentRed,
+                    color: colorScheme.error,
                   ),
                   const SizedBox(height: DesignTokens.space4),
                   Text(
                     'Failed to load dashboard',
-                    style: DesignTokens.headlineSmall.copyWith(
-                      color: textPrimary,
+                    style: textTheme.headlineSmall?.copyWith(
+                      color: colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: DesignTokens.space2),
                   Text(
                     snapshot.error.toString(),
-                    style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                    style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: DesignTokens.space4),
@@ -160,7 +161,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                     label: 'Retry',
                     icon: Icons.refresh_rounded,
                     onPressed: () => setState(() {}),
-                    isDark: isDark,
+                    isDark: Theme.of(context).brightness == Brightness.dark,
                   ),
                 ],
               ),
@@ -172,32 +173,27 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
 
         return RefreshIndicator(
           onRefresh: () async => setState(() {}),
-          color: BrandColors.primary,
+          color: colorScheme.primary,
           child: FadeTransition(
-            opacity: _staggerAnimation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.1),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve)),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
-                  DesignTokens.space6,
-                  DesignTokens.space6,
-                  DesignTokens.space6,
-                  DesignTokens.space6 + 120,
-                ),
-                child: Column(
+            opacity: _fadeAnimation,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                DesignTokens.space6,
+                DesignTokens.space6,
+                DesignTokens.space6,
+                DesignTokens.space6 + 120,
+              ),
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildHeader(textPrimary, textSecondary),
+                    _buildHeader(colorScheme, textTheme),
                     const SizedBox(height: DesignTokens.space6),
 
                     Text(
                       'Overview',
-                      style: DesignTokens.headlineSmall.copyWith(
-                        color: textPrimary,
+                      style: textTheme.headlineSmall?.copyWith(
+                        color: colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -207,8 +203,8 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
 
                     Text(
                       'Quick Actions',
-                      style: DesignTokens.headlineSmall.copyWith(
-                        color: textPrimary,
+                      style: textTheme.headlineSmall?.copyWith(
+                        color: colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -221,8 +217,8 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                       children: [
                         Text(
                           'Recent Sessions',
-                          style: DesignTokens.headlineSmall.copyWith(
-                            color: textPrimary,
+                          style: textTheme.headlineSmall?.copyWith(
+                            color: colorScheme.onSurface,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -230,8 +226,8 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                           onPressed: () => context.go(AppRoutes.adminRecords),
                           child: Text(
                             'View All',
-                            style: DesignTokens.labelLarge.copyWith(
-                              color: BrandColors.primary,
+                            style: textTheme.labelLarge?.copyWith(
+                              color: colorScheme.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -244,13 +240,12 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                 ),
               ),
             ),
-          ),
-        );
+          );
       },
     );
   }
 
-  Widget _buildHeader(Color textPrimary, Color textSecondary) {
+  Widget _buildHeader(ColorScheme colorScheme, TextTheme textTheme) {
     final authState = ref.read(authProvider);
     String greeting = 'Welcome back';
     String name = 'Admin';
@@ -261,9 +256,13 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
         name = student.fullName;
       }
       final hour = DateTime.now().hour;
-      if (hour < 12) greeting = 'Good morning';
-      else if (hour < 17) greeting = 'Good afternoon';
-      else greeting = 'Good evening';
+      if (hour < 12) {
+        greeting = 'Good morning';
+      } else if (hour < 17) {
+        greeting = 'Good afternoon';
+      } else {
+        greeting = 'Good evening';
+      }
     }
 
     return Padding(
@@ -276,29 +275,27 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
               children: [
                 Text(
                   '$greeting, $name',
-                  style: DesignTokens.headlineMedium.copyWith(
-                    color: textPrimary,
+                  style: textTheme.headlineMedium?.copyWith(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: DesignTokens.space1),
                 Text(
                   'Here\'s what\'s happening today',
-                  style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
           ),
-          const ThemeToggleButton(),
-          const SizedBox(width: DesignTokens.space2),
-          _buildProfileMenu(textPrimary, textSecondary, isDark: Theme.of(context).brightness == Brightness.dark),
+          _buildProfileMenu(colorScheme, textTheme),
         ],
       ),
     );
   }
 
-  Widget _buildProfileMenu(Color textPrimary, Color textSecondary, {required bool isDark}) {
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+  Widget _buildProfileMenu(ColorScheme colorScheme, TextTheme textTheme) {
+    final bgColor = colorScheme.surfaceContainerHighest;
     final authState = ref.read(authProvider);
     final session = authState is AuthAuthenticated ? authState.session : null;
     final user = session?.student;
@@ -327,7 +324,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                 AvatarCircle(
                   name: user.fullName,
                   size: 40,
-                  isDark: isDark,
+                  isDark: Theme.of(context).brightness == Brightness.dark,
                 ),
                 const SizedBox(width: DesignTokens.space3),
                 Expanded(
@@ -336,15 +333,15 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                     children: [
                       Text(
                         user.fullName,
-                        style: DesignTokens.bodyMedium.copyWith(
+                        style: textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       Text(
                         session?.user.email ?? '',
-                        style: DesignTokens.bodySmall.copyWith(
-                          color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -360,9 +357,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
           value: 'profile',
           child: Row(
             children: [
-              Icon(Icons.person_outline_rounded, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+              Icon(Icons.person_outline_rounded, size: 20, color: colorScheme.onSurface),
               const SizedBox(width: DesignTokens.space2),
-              Text('My Profile', style: DesignTokens.labelLarge),
+              Text('My Profile', style: textTheme.labelLarge),
             ],
           ),
         ),
@@ -370,9 +367,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
           value: 'change_avatar',
           child: Row(
             children: [
-              Icon(Icons.camera_alt_outlined, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+              Icon(Icons.camera_alt_outlined, size: 20, color: colorScheme.onSurface),
               const SizedBox(width: DesignTokens.space2),
-              Text('Change Picture', style: DesignTokens.labelLarge),
+              Text('Change Picture', style: textTheme.labelLarge),
             ],
           ),
         ),
@@ -381,9 +378,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
           value: 'logout',
           child: Row(
             children: [
-              Icon(Icons.logout_rounded, size: 20, color: BrandColors.absentRed),
+              Icon(Icons.logout_rounded, size: 20, color: colorScheme.error),
               const SizedBox(width: DesignTokens.space2),
-              Text('Logout', style: DesignTokens.labelLarge.copyWith(color: BrandColors.absentRed)),
+              Text('Logout', style: textTheme.labelLarge?.copyWith(color: colorScheme.error)),
             ],
           ),
         ),
@@ -394,55 +391,40 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
           color: bgColor,
           borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
           border: Border.all(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            color: colorScheme.outlineVariant,
             width: 1,
           ),
         ),
         child: AvatarCircle(
           name: user?.fullName,
           size: 36,
-          isDark: isDark,
+          isDark: Theme.of(context).brightness == Brightness.dark,
         ),
       ),
     );
   }
 
   void _showChangeAvatarDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: bgColor,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: 1,
-          ),
-        ),
-        title: Text(
-          'Change Profile Picture',
-          style: DesignTokens.headlineSmall.copyWith(
-            color: textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+      useSafeArea: true,
+      builder: (context) => KeyboardSafeDialog(
+        isDark: Theme.of(context).brightness == Brightness.dark,
+        title: 'Change Profile Picture',
         content: Text(
           'This feature will be implemented soon. You can pick an image from gallery or camera.',
-          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: DesignTokens.labelLarge.copyWith(
-                color: textSecondary,
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -459,54 +441,35 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
             ),
             child: Text(
               'Pick Image',
-              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],
-        actionsPadding: const EdgeInsets.symmetric(
-          horizontal: DesignTokens.space4,
-          vertical: DesignTokens.space3,
-        ),
       ),
     );
   }
 
   void _showLogoutDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: bgColor,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: 1,
-          ),
-        ),
-        title: Text(
-          'Logout',
-          style: DesignTokens.headlineSmall.copyWith(
-            color: textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+      useSafeArea: true,
+      builder: (context) => KeyboardSafeDialog(
+        isDark: Theme.of(context).brightness == Brightness.dark,
+        title: 'Logout',
         content: Text(
           'Are you sure you want to logout?',
-          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: DesignTokens.labelLarge.copyWith(
-                color: textSecondary,
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -517,32 +480,28 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
               ref.read(authProvider.notifier).logout();
             },
             style: FilledButton.styleFrom(
-              backgroundColor: BrandColors.absentRed,
+              backgroundColor: colorScheme.error,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
               ),
             ),
             child: Text(
               'Logout',
-              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],
-        actionsPadding: const EdgeInsets.symmetric(
-          horizontal: DesignTokens.space4,
-          vertical: DesignTokens.space3,
-        ),
       ),
     );
   }
 
   Widget _buildStatsGrid(Map<String, dynamic> stats, BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
     final items = [
-      _StatItem('Subjects', stats['totalSubjects'].toString(), Icons.subject_rounded, BrandColors.primary),
-      _StatItem('Students', stats['totalStudents'].toString(), Icons.people_rounded, BrandColors.primaryLight),
-      _StatItem('Active Sessions', stats['activeSessions'].toString(), Icons.event_rounded, BrandColors.presentGreen),
-      _StatItem('Today\'s Sessions', stats['todaySessions'].toString(), Icons.today_rounded, BrandColors.lateAmber),
+      _StatItem('Subjects', stats['totalSubjects'].toString(), Icons.subject_rounded, colorScheme.primary),
+      _StatItem('Students', stats['totalStudents'].toString(), Icons.people_rounded, colorScheme.secondary),
+      _StatItem('Active Sessions', stats['activeSessions'].toString(), Icons.event_rounded, Color(0xFF1B8A3A)),
+      _StatItem('Today\'s Sessions', stats['todaySessions'].toString(), Icons.today_rounded, Color(0xFFF5A623)),
     ];
 
     return GridView.builder(
@@ -556,12 +515,12 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
-        return _buildStatCard(items[index], isDark, index);
+        return _buildStatCard(items[index], colorScheme, index);
       },
     );
   }
 
-  Widget _buildStatCard(_StatItem item, bool isDark, int index) {
+  Widget _buildStatCard(_StatItem item, ColorScheme colorScheme, int index) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 300 + (index * 100)),
@@ -576,7 +535,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
         );
       },
       child: SoftCard(
-        isDark: isDark,
+        isDark: Theme.of(context).brightness == Brightness.dark,
         padding: const EdgeInsets.all(DesignTokens.space4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,7 +572,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
               child: Text(
                 item.label,
                 style: DesignTokens.bodySmall.copyWith(
-                  color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -625,30 +584,30 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
     final actions = [
       _QuickAction(
         'New Session',
         Icons.add_circle_outline_rounded,
-        BrandColors.primary,
+        colorScheme.primary,
         () => context.go(AppRoutes.adminSubjects),
       ),
       _QuickAction(
         'Start Scan',
         Icons.qr_code_scanner_rounded,
-        BrandColors.presentGreen,
+        Color(0xFF1B8A3A),
         () => context.push(AppRoutes.adminScan),
       ),
       _QuickAction(
         'View Records',
         Icons.assessment_outlined,
-        BrandColors.lateAmber,
+        Color(0xFFF5A623),
         () => context.go(AppRoutes.adminRecords),
       ),
       _QuickAction(
         'Manage Subjects',
         Icons.subject_outlined,
-        BrandColors.primaryLight,
+        colorScheme.secondary,
         () => context.go(AppRoutes.adminSubjects),
       ),
     ];
@@ -664,12 +623,12 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
       ),
       itemCount: actions.length,
       itemBuilder: (context, index) {
-        return _buildActionCard(actions[index], isDark, index);
+        return _buildActionCard(actions[index], colorScheme, index);
       },
     );
   }
 
-  Widget _buildActionCard(_QuickAction action, bool isDark, int index) {
+  Widget _buildActionCard(_QuickAction action, ColorScheme colorScheme, int index) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 400 + (index * 100)),
@@ -684,7 +643,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
         );
       },
       child: SoftTile(
-        isDark: isDark,
+        isDark: Theme.of(context).brightness == Brightness.dark,
         onTap: action.onTap,
         padding: const EdgeInsets.all(DesignTokens.space4),
         child: Column(
@@ -707,7 +666,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
               action.label,
               style: DesignTokens.labelLarge.copyWith(
                 fontWeight: FontWeight.w600,
-                color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                color: colorScheme.onSurface,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
@@ -720,25 +679,26 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
   }
 
   Widget _buildRecentSessions(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return FutureBuilder<List<Session>>(
       future: _fetchRecentSessions(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return SoftCard(
-            isDark: isDark,
+            isDark: Theme.of(context).brightness == Brightness.dark,
             padding: const EdgeInsets.all(DesignTokens.space6),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(color: BrandColors.primary),
+                  CircularProgressIndicator(color: colorScheme.primary),
                   const SizedBox(height: DesignTokens.space3),
                   Text(
                     'Loading sessions...',
-                    style: DesignTokens.bodyMedium.copyWith(
-                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -749,28 +709,28 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
 
         if (snapshot.hasError || snapshot.data == null || snapshot.data!.isEmpty) {
           return SoftCard(
-            isDark: isDark,
+            isDark: Theme.of(context).brightness == Brightness.dark,
             padding: const EdgeInsets.all(DesignTokens.space6),
             child: Column(
               children: [
                 Icon(
                   Icons.event_busy_rounded,
                   size: 48,
-                  color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(height: DesignTokens.space4),
                 Text(
                   'No recent sessions',
-                  style: DesignTokens.titleMedium.copyWith(
+                  style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: DesignTokens.space2),
                 Text(
                   'Create a session from the Subjects tab',
-                  style: DesignTokens.bodyMedium.copyWith(
-                    color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -782,7 +742,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
         final sessions = snapshot.data!.take(5).toList();
 
         return SoftCard(
-          isDark: isDark,
+          isDark: Theme.of(context).brightness == Brightness.dark,
           padding: EdgeInsets.zero,
           child: ListView.separated(
             shrinkWrap: true,
@@ -794,11 +754,11 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
               thickness: 1,
               indent: DesignTokens.space4,
               endIndent: DesignTokens.space4,
-              color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+              color: colorScheme.outlineVariant,
             ),
             itemBuilder: (context, index) {
               final session = sessions[index];
-              return _buildSessionListItem(session, isDark);
+              return _buildSessionListItem(session, colorScheme);
             },
           ),
         );
@@ -806,11 +766,11 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
     );
   }
 
-  Widget _buildSessionListItem(Session session, bool isDark) {
-    final statusColor = session.status == 'open' ? BrandColors.presentGreen : (isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary);
+  Widget _buildSessionListItem(Session session, ColorScheme colorScheme) {
+    final statusColor = session.status == 'open' ? Color(0xFF1B8A3A) : colorScheme.onSurfaceVariant;
     final statusBg = session.status == 'open'
-        ? BrandColors.presentGreen.withValues(alpha: 0.12)
-        : (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant);
+        ? Color(0xFF1B8A3A).withValues(alpha: 0.12)
+        : colorScheme.surfaceContainerHighest;
 
     return InkWell(
       onTap: () => context.push('${AppRoutes.adminRecords}?sessionId=${session.id}'),
@@ -843,13 +803,13 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                     'Session ${session.id}',
                     style: DesignTokens.titleMedium.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                   Text(
                     '${session.date} • ${session.startTime} - ${session.endTime}',
                     style: DesignTokens.bodySmall.copyWith(
-                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],

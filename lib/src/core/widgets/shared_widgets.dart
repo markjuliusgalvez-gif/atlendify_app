@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import '../theme/design_tokens.dart';
 import '../theme/brand_colors.dart';
 
@@ -840,43 +841,49 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
     final accent = widget.accentColor ?? BrandColors.primary;
     final bgColor = widget.backgroundColor ?? (isDark ? BrandColors.darkSurface : BrandColors.lightSurface);
     final itemCount = widget.destinations.length;
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
 
-    return Container(
-      height: DesignTokens.bottomBarHeight,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusBottomBar)),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : BrandColors.primary.withValues(alpha: 0.08),
-            offset: const Offset(0, -4),
-            blurRadius: 20,
-            spreadRadius: 0,
-          ),
-        ],
-        border: Border(
-          top: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: isDark ? 1 : 0,
+    return SafeArea(
+      top: false,
+      bottom: true,
+      minimum: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        height: DesignTokens.bottomBarHeight,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusBottomBar)),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.3)
+                  : BrandColors.primary.withValues(alpha: 0.08),
+              offset: const Offset(0, -4),
+              blurRadius: 20,
+              spreadRadius: 0,
+            ),
+          ],
+          border: Border(
+            top: BorderSide(
+              color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+              width: isDark ? 1 : 0,
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: List.generate(itemCount, (index) {
-          final destination = widget.destinations[index];
-          final isSelected = index == widget.selectedIndex;
-          return Expanded(
-            child: _NavBarItem(
-              destination: destination,
-              isSelected: isSelected,
-              isDark: isDark,
-              accentColor: accent,
-              onTap: () => widget.onDestinationSelected(index),
-            ),
-          );
-        }),
+        child: Row(
+          children: List.generate(itemCount, (index) {
+            final destination = widget.destinations[index];
+            final isSelected = index == widget.selectedIndex;
+            return Expanded(
+              child: _NavBarItem(
+                destination: destination,
+                isSelected: isSelected,
+                isDark: isDark,
+                accentColor: accent,
+                onTap: () => widget.onDestinationSelected(index),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -1536,6 +1543,318 @@ class _StaggeredItemState extends State<StaggeredItem> with SingleTickerProvider
         );
       },
       child: widget.child,
+    );
+  }
+}
+
+/// ===========================================================================
+/// KEYBOARD SAFE DIALOG - Dialog that handles keyboard avoidance and safe areas
+/// ===========================================================================
+class KeyboardSafeDialog extends StatelessWidget {
+  final bool isDark;
+  final String title;
+  final Widget content;
+  final List<Widget> actions;
+
+  const KeyboardSafeDialog({
+    super.key,
+    required this.isDark,
+    required this.title,
+    required this.content,
+    required this.actions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
+    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
+
+    return AnimatedPadding(
+      duration: DesignTokens.durationNormal,
+      curve: DesignTokens.emphasizedCurve,
+      padding: MediaQuery.of(context).viewInsets,
+      child: AlertDialog(
+        backgroundColor: bgColor,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(color: outlineColor, width: 1),
+        ),
+        title: Text(
+          title,
+          style: DesignTokens.headlineSmall.copyWith(
+            color: textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: content,
+        ),
+        actions: actions,
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space2,
+        ),
+      ),
+    );
+  }
+}
+
+/// ===========================================================================
+/// GLASS NAV BAR - Floating frosted glass navigation bar (image_9.png style)
+/// ===========================================================================
+class GlassNavBar extends StatefulWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+  final List<NavigationDestination> destinations;
+  final bool isDark;
+  final Color? accentColor;
+
+  const GlassNavBar({
+    super.key,
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+    required this.destinations,
+    required this.isDark,
+    this.accentColor,
+  });
+
+  @override
+  State<GlassNavBar> createState() => _GlassNavBarState();
+}
+
+class _GlassNavBarState extends State<GlassNavBar> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: DesignTokens.durationNormal,
+      vsync: this,
+    );
+    _controller.value = 1.0;
+  }
+
+  @override
+  void didUpdateWidget(covariant GlassNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final accent = widget.accentColor ?? BrandColors.primary;
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    final itemCount = widget.destinations.length;
+
+    // Glassmorphic colors
+    final glassBgColor = isDark ? const Color(0xCC1A1F26) : const Color(0xCCF0F4F8);
+    final glassBorderColor = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.white.withValues(alpha: 0.6);
+
+    return SafeArea(
+      top: false,
+      bottom: true,
+      minimum: EdgeInsets.only(bottom: bottomInset),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + bottomInset),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(36),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              height: DesignTokens.bottomBarHeight,
+              decoration: BoxDecoration(
+                color: glassBgColor,
+                borderRadius: BorderRadius.circular(36),
+                border: Border.all(
+                  color: glassBorderColor,
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.25)
+                        : Colors.black.withValues(alpha: 0.06),
+                    offset: const Offset(0, 6),
+                    blurRadius: 20,
+                    spreadRadius: 0,
+                  ),
+                  BoxShadow(
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.1)
+                        : Colors.black.withValues(alpha: 0.03),
+                    offset: const Offset(0, 2),
+                    blurRadius: 6,
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: Row(
+                children: List.generate(itemCount, (index) {
+                  final destination = widget.destinations[index];
+                  final isSelected = index == widget.selectedIndex;
+                  return Expanded(
+                    child: _GlassNavBarItem(
+                      destination: destination,
+                      isSelected: isSelected,
+                      isDark: isDark,
+                      accentColor: accent,
+                      onTap: () => widget.onDestinationSelected(index),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassNavBarItem extends StatefulWidget {
+  final NavigationDestination destination;
+  final bool isSelected;
+  final bool isDark;
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  const _GlassNavBarItem({
+    required this.destination,
+    required this.isSelected,
+    required this.isDark,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  @override
+  State<_GlassNavBarItem> createState() => _GlassNavBarItemState();
+}
+
+class _GlassNavBarItemState extends State<_GlassNavBarItem> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+  late Animation<double> _iconScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: DesignTokens.durationNormal,
+      vsync: this,
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+    _iconScale = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _GlassNavBarItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isSelected != widget.isSelected) {
+      if (widget.isSelected) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = widget.isSelected;
+    final isDark = widget.isDark;
+    final accent = widget.accentColor;
+
+    final inactiveIconColor = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final inactiveLabelColor = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scale.value,
+            child: SizedBox(
+              height: DesignTokens.bottomBarHeight,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Icon container - only for active tab
+                  AnimatedContainer(
+                    duration: DesignTokens.durationNormal,
+                    curve: DesignTokens.emphasizedCurve,
+                    width: isSelected ? 44 : 24,
+                    height: isSelected ? 32 : 24,
+                    decoration: isSelected
+                        ? BoxDecoration(
+                            color: accent.withValues(alpha: isDark ? 0.18 : 0.12),
+                            borderRadius: BorderRadius.circular(16),
+                          )
+                        : null,
+                    child: Center(
+                      child: Transform.scale(
+                        scale: isSelected ? _iconScale.value : 1.0,
+                        child: IconTheme(
+                          data: IconThemeData(
+                            size: 24,
+                            color: isSelected ? accent : inactiveIconColor,
+                          ),
+                          child: isSelected
+                              ? widget.destination.selectedIcon ?? widget.destination.icon
+                              : widget.destination.icon,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // Label
+                  AnimatedDefaultTextStyle(
+                    duration: DesignTokens.durationNormal,
+                    curve: DesignTokens.emphasizedCurve,
+                    style: DesignTokens.labelSmall.copyWith(
+                      color: isSelected ? accent : inactiveLabelColor,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                    child: Text(
+                      widget.destination.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

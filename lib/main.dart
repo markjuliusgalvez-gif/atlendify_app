@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'src/core/theme/app_theme.dart';
-import 'src/core/theme/theme_provider.dart' show themeModeProvider, AppAnimatedTheme;
 import 'src/core/router/app_router.dart';
 import 'src/core/services/lifecycle_service.dart';
 
@@ -35,18 +34,13 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeModeProvider.notifier).themeMode;
-
     return MaterialApp.router(
       title: 'Atlendify',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.darkTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: themeMode,
+      themeMode: ThemeMode.dark,
       routerConfig: ref.watch(routerProvider),
-      builder: (context, child) {
-        return AppAnimatedTheme(child: child!);
-      },
     );
   }
 }

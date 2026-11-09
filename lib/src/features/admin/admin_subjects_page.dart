@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
-import '../../core/theme/brand_colors.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
@@ -19,7 +18,6 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
   int _selectedIndex = 1;
   late AnimationController _entranceController;
   late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
 
   void _onTabSelected(int index) {
     setState(() => _selectedIndex = index);
@@ -40,16 +38,12 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
   void initState() {
     super.initState();
     _entranceController = AnimationController(
-      duration: DesignTokens.durationSlow,
+      duration: DesignTokens.durationNormal,
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve),
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve));
     _entranceController.forward();
   }
 
@@ -62,36 +56,43 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: colorScheme.surface,
       extendBody: true,
-      body: authState is AuthAuthenticated
-          ? _buildSubjectsContent(textPrimary, textSecondary, isDark)
-          : Center(
-              child: Text(
-                'Not logged in',
-                style: DesignTokens.bodyLarge.copyWith(color: textSecondary),
+      body: SafeArea(
+        top: true,
+        child: authState is AuthAuthenticated
+            ? _buildSubjectsContent()
+            : Center(
+                child: Text(
+                  'Not logged in',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
-            ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddSubjectDialog,
-        backgroundColor: BrandColors.primary,
-        foregroundColor: Colors.white,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add_rounded, size: 28),
+      ),
+      floatingActionButton: SafeArea(
+        top: false,
+        bottom: true,
+        child: FloatingActionButton(
+          onPressed: _showAddSubjectDialog,
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.add_rounded, size: 28),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: _buildFloatingNavBar(isDark),
+      bottomNavigationBar: _buildGlassNavBar(),
     );
   }
 
-  Widget _buildFloatingNavBar(bool isDark) {
-    return FloatingNavBar(
+  Widget _buildGlassNavBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GlassNavBar(
       selectedIndex: _selectedIndex,
       onDestinationSelected: _onTabSelected,
       destinations: const [
@@ -111,12 +112,15 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
           label: 'Settings',
         ),
       ],
-      isDark: isDark,
-      accentColor: BrandColors.primary,
+      isDark: Theme.of(context).brightness == Brightness.dark,
+      accentColor: colorScheme.primary,
     );
   }
 
-  Widget _buildSubjectsContent(Color textPrimary, Color textSecondary, bool isDark) {
+  Widget _buildSubjectsContent() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return FutureBuilder<List<Subject>>(
       future: _fetchSubjects(),
       builder: (context, snapshot) {
@@ -125,12 +129,12 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: BrandColors.primary),
+                CircularProgressIndicator(color: colorScheme.primary),
                 const SizedBox(height: DesignTokens.space4),
                 Text(
                   'Loading subjects...',
-                  style: DesignTokens.bodyMedium.copyWith(
-                    color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -148,20 +152,20 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                   Icon(
                     Icons.error_outline_rounded,
                     size: 48,
-                    color: BrandColors.absentRed,
+                    color: colorScheme.error,
                   ),
                   const SizedBox(height: DesignTokens.space4),
                   Text(
                     'Failed to load subjects',
-                    style: DesignTokens.headlineSmall.copyWith(
-                      color: textPrimary,
+                    style: textTheme.headlineSmall?.copyWith(
+                      color: colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: DesignTokens.space2),
                   Text(
                     snapshot.error.toString(),
-                    style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                    style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: DesignTokens.space4),
@@ -169,7 +173,7 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                     label: 'Retry',
                     icon: Icons.refresh_rounded,
                     onPressed: () => setState(() {}),
-                    isDark: isDark,
+                    isDark: Theme.of(context).brightness == Brightness.dark,
                   ),
                 ],
               ),
@@ -181,12 +185,10 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
 
         return FadeTransition(
           opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: RefreshIndicator(
-              onRefresh: () async => setState(() {}),
-              color: BrandColors.primary,
-              child: CustomScrollView(
+          child: RefreshIndicator(
+            onRefresh: () async => setState(() {}),
+            color: colorScheme.primary,
+            child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
@@ -205,15 +207,15 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                               children: [
                                 Text(
                                   'Subjects',
-                                  style: DesignTokens.headlineLarge.copyWith(
-                                    color: textPrimary,
+                                  style: textTheme.headlineLarge?.copyWith(
+                                    color: colorScheme.onSurface,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
                                 const SizedBox(height: DesignTokens.space1),
                                 Text(
                                   'Manage your course subjects',
-                                  style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                                 ),
                               ],
                             ),
@@ -225,13 +227,13 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                                 vertical: DesignTokens.space1,
                               ),
                               decoration: BoxDecoration(
-                                color: BrandColors.primary.withValues(alpha: 0.12),
+                                color: colorScheme.primary.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
                               ),
                               child: Text(
                                 '${subjects.length} subject${subjects.length != 1 ? 's' : ''}',
-                                style: DesignTokens.labelMedium.copyWith(
-                                  color: BrandColors.primary,
+                                style: textTheme.labelMedium?.copyWith(
+                                  color: colorScheme.primary,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -251,27 +253,26 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                     sliver: subjects.isEmpty
                         ? SliverFillRemaining(
                             hasScrollBody: false,
-                            child: _buildEmptyState(textPrimary, textSecondary, isDark),
+                            child: _buildEmptyState(colorScheme, textTheme),
                           )
                         : SliverList.separated(
                             itemCount: subjects.length,
                             separatorBuilder: (context, index) => const SizedBox(height: DesignTokens.space3),
                             itemBuilder: (context, index) {
                               final subject = subjects[index];
-                              return _buildSubjectCard(subject, isDark, index);
+                              return _buildSubjectCard(subject, colorScheme, textTheme, index);
                             },
                           ),
                   ),
                 ],
               ),
             ),
-          ),
-        );
+          );
       },
     );
   }
 
-  Widget _buildEmptyState(Color textPrimary, Color textSecondary, bool isDark) {
+  Widget _buildEmptyState(ColorScheme colorScheme, TextTheme textTheme) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(DesignTokens.space6),
@@ -281,27 +282,27 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
             Container(
               padding: const EdgeInsets.all(DesignTokens.space6),
               decoration: BoxDecoration(
-                color: (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant).withValues(alpha: 0.5),
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(DesignTokens.radiusCircle),
               ),
               child: Icon(
                 Icons.subject_outlined,
                 size: 64,
-                color: textSecondary,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: DesignTokens.space6),
             Text(
               'No subjects yet',
-              style: DesignTokens.headlineSmall.copyWith(
-                color: textPrimary,
+              style: textTheme.headlineSmall?.copyWith(
+                color: colorScheme.onSurface,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: DesignTokens.space3),
             Text(
               'Add your first subject to get started',
-              style: DesignTokens.bodyLarge.copyWith(color: textSecondary),
+              style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: DesignTokens.space6),
@@ -309,7 +310,7 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
               label: 'Add Subject',
               icon: Icons.add_rounded,
               onPressed: _showAddSubjectDialog,
-              isDark: isDark,
+              isDark: Theme.of(context).brightness == Brightness.dark,
             ),
           ],
         ),
@@ -317,7 +318,7 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
     );
   }
 
-  Widget _buildSubjectCard(Subject subject, bool isDark, int index) {
+  Widget _buildSubjectCard(Subject subject, ColorScheme colorScheme, TextTheme textTheme, int index) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 300 + (index * 50)),
@@ -332,7 +333,7 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
         );
       },
       child: SoftCard(
-        isDark: isDark,
+        isDark: Theme.of(context).brightness == Brightness.dark,
         padding: const EdgeInsets.all(DesignTokens.space5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,16 +346,16 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                     children: [
                       Text(
                         subject.name,
-                        style: DesignTokens.titleLarge.copyWith(
+                        style: textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: DesignTokens.space1),
                       Text(
                         '${subject.code} - Section ${subject.section}',
-                        style: DesignTokens.bodyMedium.copyWith(
-                          color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -382,9 +383,9 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                       value: 'dashboard',
                       child: Row(
                         children: [
-                          Icon(Icons.dashboard_outlined, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+                          Icon(Icons.dashboard_outlined, size: 20, color: colorScheme.onSurface),
                           const SizedBox(width: 8),
-                          Text('Open Dashboard', style: DesignTokens.labelLarge),
+                          Text('Open Dashboard', style: textTheme.labelLarge),
                         ],
                       ),
                     ),
@@ -392,9 +393,9 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                       value: 'edit',
                       child: Row(
                         children: [
-                          Icon(Icons.edit_outlined, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+                          Icon(Icons.edit_outlined, size: 20, color: colorScheme.onSurface),
                           const SizedBox(width: 8),
-                          Text('Edit', style: DesignTokens.labelLarge),
+                          Text('Edit', style: textTheme.labelLarge),
                         ],
                       ),
                     ),
@@ -402,9 +403,9 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                       value: 'enroll',
                       child: Row(
                         children: [
-                          Icon(Icons.people_outlined, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+                          Icon(Icons.people_outlined, size: 20, color: colorScheme.onSurface),
                           const SizedBox(width: 8),
-                          Text('Manage Enrollment', style: DesignTokens.labelLarge),
+                          Text('Manage Enrollment', style: textTheme.labelLarge),
                         ],
                       ),
                     ),
@@ -412,9 +413,9 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline, size: 20, color: BrandColors.absentRed),
+                          Icon(Icons.delete_outline, size: 20, color: colorScheme.error),
                           const SizedBox(width: 8),
-                          Text('Delete', style: DesignTokens.labelLarge.copyWith(color: BrandColors.absentRed)),
+                          Text('Delete', style: textTheme.labelLarge?.copyWith(color: colorScheme.error)),
                         ],
                       ),
                     ),
@@ -422,12 +423,12 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                   child: Container(
                     padding: const EdgeInsets.all(DesignTokens.space2),
                     decoration: BoxDecoration(
-                      color: (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant),
+                      color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
                     ),
                     child: Icon(
                       Icons.more_vert_rounded,
-                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                      color: colorScheme.onSurfaceVariant,
                       size: 20,
                     ),
                   ),
@@ -439,9 +440,9 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
               spacing: DesignTokens.space2,
               runSpacing: DesignTokens.space2,
               children: [
-                _buildInfoChip(Icons.calendar_today_rounded, subject.days, isDark),
-                _buildInfoChip(Icons.access_time_rounded, '${subject.startTime} - ${subject.endTime}', isDark),
-                _buildInfoChip(Icons.schedule_rounded, 'Late after: ${subject.lateAfterTime}', isDark),
+                _buildInfoChip(Icons.calendar_today_rounded, subject.days, colorScheme, textTheme),
+                _buildInfoChip(Icons.access_time_rounded, '${subject.startTime} - ${subject.endTime}', colorScheme, textTheme),
+                _buildInfoChip(Icons.schedule_rounded, 'Late after: ${subject.lateAfterTime}', colorScheme, textTheme),
               ],
             ),
           ],
@@ -450,29 +451,29 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String label, bool isDark) {
+  Widget _buildInfoChip(IconData icon, String label, ColorScheme colorScheme, TextTheme textTheme) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: DesignTokens.space3,
         vertical: DesignTokens.space1,
       ),
       decoration: BoxDecoration(
-        color: (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant),
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
         border: Border.all(
-          color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+          color: colorScheme.outlineVariant,
           width: 1,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary),
+          Icon(icon, size: 14, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: DesignTokens.space1),
           Text(
             label,
-            style: DesignTokens.labelSmall.copyWith(
-              color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+            style: textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -507,6 +508,7 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
 
     showDialog(
       context: context,
+      useSafeArea: true,
       builder: (context) => _StyledSubjectDialog(
         isEditing: isEditing,
         formKey: formKey,
@@ -542,33 +544,31 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
             } else {
               await subjectRepo.insert(newSubject);
             }
-            if (mounted) {
-              Navigator.pop(context);
-              setState(() {});
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(isEditing ? 'Subject updated' : 'Subject created'),
-                  backgroundColor: BrandColors.presentGreen,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-                  ),
+            if (!mounted) return;
+            Navigator.pop(context);
+            setState(() {});
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isEditing ? 'Subject updated' : 'Subject created'),
+                backgroundColor: const Color(0xFF1B8A3A),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
                 ),
-              );
-            }
+              ),
+            );
           } catch (e) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Error: $e'),
-                  backgroundColor: BrandColors.absentRed,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-                  ),
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: $e'),
+                backgroundColor: const Color(0xFFD0021B),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
                 ),
-              );
-            }
+              ),
+            );
           }
         },
       ),
@@ -578,6 +578,7 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
   void _showEnrollmentDialog(Subject subject) {
     showDialog(
       context: context,
+      useSafeArea: true,
       builder: (context) => _EnrollmentDialog(subject: subject),
     );
   }
@@ -585,37 +586,36 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
   void _confirmDeleteSubject(Subject subject) {
     showDialog(
       context: context,
+      useSafeArea: true,
       builder: (context) => _StyledDeleteDialog(subject: subject, onDelete: () async {
         Navigator.pop(context);
         try {
           final subjectRepo = SubjectRepository();
           await subjectRepo.delete(subject.id!);
-          if (mounted) {
-            setState(() {});
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Subject deleted'),
-                backgroundColor: BrandColors.presentGreen,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-                ),
+          if (!mounted) return;
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Subject deleted'),
+              backgroundColor: const Color(0xFF1B8A3A),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
               ),
-            );
-          }
+            ),
+          );
         } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error: $e'),
-                backgroundColor: BrandColors.absentRed,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-                ),
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: const Color(0xFFD0021B),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
               ),
-            );
-          }
+            ),
+          );
         }
       }),
     );
@@ -649,157 +649,159 @@ class _StyledSubjectDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
-    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
-    return AlertDialog(
-      backgroundColor: bgColor,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-        side: BorderSide(color: outlineColor, width: 1),
-      ),
-      title: Text(
-        isEditing ? 'Edit Subject' : 'Add Subject',
-        style: DesignTokens.headlineSmall.copyWith(
-          color: textPrimary,
-          fontWeight: FontWeight.w700,
+    return AnimatedPadding(
+      duration: DesignTokens.durationNormal,
+      curve: DesignTokens.emphasizedCurve,
+      padding: MediaQuery.of(context).viewInsets,
+      child: AlertDialog(
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
-      ),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _StyledTextField(
-                  controller: nameController,
-                  label: 'Subject Name',
-                  hint: 'e.g., Computer Science',
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Subject name is required';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: DesignTokens.space4),
-                _StyledTextField(
-                  controller: codeController,
-                  label: 'Subject Code',
-                  hint: 'e.g., CS101',
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Subject code is required';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: DesignTokens.space4),
-                _StyledTextField(
-                  controller: sectionController,
-                  label: 'Section',
-                  hint: 'e.g., A',
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Section is required';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: DesignTokens.space4),
-                _StyledTextField(
-                  controller: daysController,
-                  label: 'Days',
-                  hint: 'e.g., Mon,Wed,Fri',
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Days are required';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: DesignTokens.space4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StyledTextField(
-                        controller: startTimeController,
-                        label: 'Start Time',
-                        hint: '08:00',
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Required';
-                          }
-                          return null;
-                        },
+        title: Text(
+          isEditing ? 'Edit Subject' : 'Add Subject',
+          style: textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _StyledTextField(
+                    controller: nameController,
+                    label: 'Subject Name',
+                    hint: 'e.g., Computer Science',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Subject name is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: DesignTokens.space4),
+                  _StyledTextField(
+                    controller: codeController,
+                    label: 'Subject Code',
+                    hint: 'e.g., CS101',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Subject code is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: DesignTokens.space4),
+                  _StyledTextField(
+                    controller: sectionController,
+                    label: 'Section',
+                    hint: 'e.g., A',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Section is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: DesignTokens.space4),
+                  _StyledTextField(
+                    controller: daysController,
+                    label: 'Days',
+                    hint: 'e.g., Mon,Wed,Fri',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Days are required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: DesignTokens.space4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StyledTextField(
+                          controller: startTimeController,
+                          label: 'Start Time',
+                          hint: '08:00',
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Required';
+                            }
+                            return null;
+                          },
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: DesignTokens.space3),
-                    Expanded(
-                      child: _StyledTextField(
-                        controller: lateAfterTimeController,
-                        label: 'Late After',
-                        hint: '08:15',
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Required';
-                          }
-                          return null;
-                        },
+                      const SizedBox(width: DesignTokens.space3),
+                      Expanded(
+                        child: _StyledTextField(
+                          controller: lateAfterTimeController,
+                          label: 'Late After',
+                          hint: '08:15',
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Required';
+                            }
+                            return null;
+                          },
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: DesignTokens.space4),
-                _StyledTextField(
-                  controller: endTimeController,
-                  label: 'End Time',
-                  hint: '10:00',
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'End time is required';
-                    }
-                    return null;
-                  },
-                ),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: DesignTokens.space4),
+                  _StyledTextField(
+                    controller: endTimeController,
+                    label: 'End Time',
+                    hint: '10:00',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'End time is required';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            'Cancel',
-            style: DesignTokens.labelLarge.copyWith(
-              color: textSecondary,
-              fontWeight: FontWeight.w600,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-        FilledButton(
-          onPressed: () => onSave(),
-          style: FilledButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+          FilledButton(
+            onPressed: () => onSave(),
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+            ),
+            child: Text(
+              isEditing ? 'Save' : 'Create',
+              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
-          child: Text(
-            isEditing ? 'Save' : 'Create',
-            style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
-          ),
+        ],
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space2,
         ),
-      ],
-      actionsPadding: const EdgeInsets.symmetric(
-        horizontal: DesignTokens.space4,
-        vertical: DesignTokens.space2,
       ),
     );
   }
@@ -820,46 +822,44 @@ class _StyledTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: DesignTokens.bodyMedium.copyWith(color: textSecondary),
-        hintStyle: DesignTokens.bodyMedium.copyWith(color: textSecondary.withValues(alpha: 0.6)),
+        labelStyle: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+        hintStyle: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-          borderSide: BorderSide(color: outlineColor),
+          borderSide: BorderSide(color: colorScheme.outline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-          borderSide: BorderSide(color: outlineColor),
+          borderSide: BorderSide(color: colorScheme.outline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-          borderSide: BorderSide(color: BrandColors.primary, width: 2),
+          borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-          borderSide: BorderSide(color: BrandColors.absentRed),
+          borderSide: BorderSide(color: colorScheme.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-          borderSide: BorderSide(color: BrandColors.absentRed, width: 2),
+          borderSide: BorderSide(color: colorScheme.error, width: 2),
         ),
         filled: true,
-        fillColor: isDark ? BrandColors.darkBackground : BrandColors.lightBackground,
+        fillColor: colorScheme.surfaceContainerHighest,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: DesignTokens.space4,
           vertical: DesignTokens.space3,
         ),
       ),
-      style: DesignTokens.bodyMedium.copyWith(color: textPrimary),
+      style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
       validator: validator,
     );
   }
@@ -876,58 +876,60 @@ class _StyledDeleteDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
-    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
-    return AlertDialog(
-      backgroundColor: bgColor,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-        side: BorderSide(color: outlineColor, width: 1),
-      ),
-      title: Text(
-        'Delete Subject',
-        style: DesignTokens.headlineSmall.copyWith(
-          color: textPrimary,
-          fontWeight: FontWeight.w700,
+    return AnimatedPadding(
+      duration: DesignTokens.durationNormal,
+      curve: DesignTokens.emphasizedCurve,
+      padding: MediaQuery.of(context).viewInsets,
+      child: AlertDialog(
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
-      ),
-      content: Text(
-        'Are you sure you want to delete "${subject.name}"? This will also remove all sessions and enrollments for this subject.',
-        style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            'Cancel',
-            style: DesignTokens.labelLarge.copyWith(
-              color: textSecondary,
-              fontWeight: FontWeight.w600,
+        title: Text(
+          'Delete Subject',
+          style: textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${subject.name}"? This will also remove all sessions and enrollments for this subject.',
+          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-        FilledButton(
-          onPressed: onDelete,
-          style: FilledButton.styleFrom(
-            backgroundColor: BrandColors.absentRed,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+          FilledButton(
+            onPressed: onDelete,
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.error,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+              ),
+            ),
+            child: Text(
+              'Delete',
+              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
-          child: Text(
-            'Delete',
-            style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
-          ),
+        ],
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space2,
         ),
-      ],
-      actionsPadding: const EdgeInsets.symmetric(
-        horizontal: DesignTokens.space4,
-        vertical: DesignTokens.space2,
       ),
     );
   }
@@ -985,7 +987,7 @@ class _EnrollmentDialogState extends ConsumerState<_EnrollmentDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: BrandColors.absentRed,
+            backgroundColor: Color(0xFFD0021B),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
@@ -998,138 +1000,142 @@ class _EnrollmentDialogState extends ConsumerState<_EnrollmentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
-    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     if (_isLoading) {
       return AlertDialog(
-        backgroundColor: bgColor,
+        backgroundColor: colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(color: outlineColor, width: 1),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
         content: SizedBox(
           height: 200,
-          child: Center(child: CircularProgressIndicator(color: BrandColors.primary)),
+          child: Center(child: CircularProgressIndicator(color: colorScheme.primary)),
         ),
       );
     }
 
-    return AlertDialog(
-      backgroundColor: bgColor,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-        side: BorderSide(color: outlineColor, width: 1),
-      ),
-      title: Text(
-        'Enrollment: ${widget.subject.name}',
-        style: DesignTokens.headlineSmall.copyWith(
-          color: textPrimary,
-          fontWeight: FontWeight.w700,
+    return AnimatedPadding(
+      duration: DesignTokens.durationNormal,
+      curve: DesignTokens.emphasizedCurve,
+      padding: MediaQuery.of(context).viewInsets,
+      child: AlertDialog(
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
-      ),
-      content: SizedBox(
-        width: double.maxFinite,
-        height: 400,
-        child: Column(
-          children: [
-            Text(
-              '${_enrolledStudents.length} of ${_allStudents.length} students enrolled',
-              style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
-            ),
-            const SizedBox(height: DesignTokens.space4),
-            Expanded(
-              child: ListView.separated(
-                itemCount: _allStudents.length,
-                separatorBuilder: (context, index) => Divider(
-                  height: 1,
-                  thickness: 1,
-                  indent: DesignTokens.space4,
-                  endIndent: DesignTokens.space4,
-                  color: outlineColor,
+        title: Text(
+          'Enrollment: ${widget.subject.name}',
+          style: textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${_enrolledStudents.length} of ${_allStudents.length} students enrolled',
+                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
-                itemBuilder: (context, index) {
-                  final student = _allStudents[index];
-                  final isEnrolled = _enrolledStudents.any((s) => s.id == student.id);
+                const SizedBox(height: DesignTokens.space4),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _allStudents.length,
+                  separatorBuilder: (context, index) => Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: DesignTokens.space4,
+                    endIndent: DesignTokens.space4,
+                    color: colorScheme.outlineVariant,
+                  ),
+                  itemBuilder: (context, index) {
+                    final student = _allStudents[index];
+                    final isEnrolled = _enrolledStudents.any((s) => s.id == student.id);
 
-                  return InkWell(
-                    onTap: () => _toggleEnrollment(student),
-                    borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: DesignTokens.space4,
-                        vertical: DesignTokens.space3,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(DesignTokens.space2),
-                            decoration: BoxDecoration(
-                              color: isEnrolled
-                                  ? BrandColors.presentGreen.withValues(alpha: 0.12)
-                                  : (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant),
-                              borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                    return InkWell(
+                      onTap: () => _toggleEnrollment(student),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: DesignTokens.space4,
+                          vertical: DesignTokens.space3,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(DesignTokens.space2),
+                              decoration: BoxDecoration(
+                                color: isEnrolled
+                                    ? Color(0xFF1B8A3A).withValues(alpha: 0.12)
+                                    : colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                              ),
+                              child: Icon(
+                                isEnrolled ? Icons.check_rounded : Icons.person_outline_rounded,
+                                color: isEnrolled ? Color(0xFF1B8A3A) : colorScheme.onSurfaceVariant,
+                                size: 20,
+                              ),
                             ),
-                            child: Icon(
-                              isEnrolled ? Icons.check_rounded : Icons.person_outline_rounded,
-                              color: isEnrolled ? BrandColors.presentGreen : textSecondary,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: DesignTokens.space3),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  student.fullName,
-                                  style: DesignTokens.titleMedium.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: textPrimary,
+                            const SizedBox(width: DesignTokens.space3),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    student.fullName,
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.onSurface,
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  student.studentNumber,
-                                  style: DesignTokens.bodySmall.copyWith(color: textSecondary),
-                                ),
-                              ],
+                                  Text(
+                                    student.studentNumber,
+                                    style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          Switch(
-                            value: isEnrolled,
-                            onChanged: (_) => _toggleEnrollment(student),
-                            activeColor: BrandColors.presentGreen,
-                          ),
-                        ],
+                            Switch(
+                              value: isEnrolled,
+                              onChanged: (_) => _toggleEnrollment(student),
+                              activeThumbColor: Color(0xFF1B8A3A),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            'Done',
-            style: DesignTokens.labelLarge.copyWith(
-              color: BrandColors.primary,
-              fontWeight: FontWeight.w600,
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ),
-      ],
-      actionsPadding: const EdgeInsets.symmetric(
-        horizontal: DesignTokens.space4,
-        vertical: DesignTokens.space2,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Done',
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space2,
+        ),
       ),
     );
   }

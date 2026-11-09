@@ -93,7 +93,7 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with Single
         child: const Icon(Icons.filter_list_rounded),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: _buildFloatingNavBar(isDark),
+      bottomNavigationBar: _buildGlassNavBar(isDark),
     );
   }
 
@@ -456,8 +456,8 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with Single
     );
   }
 
-  Widget _buildFloatingNavBar(bool isDark) {
-    return FloatingNavBar(
+  Widget _buildGlassNavBar(bool isDark) {
+    return GlassNavBar(
       selectedIndex: _selectedIndex,
       onDestinationSelected: _onTabSelected,
       destinations: const [

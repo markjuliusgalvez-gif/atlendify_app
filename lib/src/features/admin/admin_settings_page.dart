@@ -5,9 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
 import '../../core/services/pin_service.dart';
-import '../../core/theme/brand_colors.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/theme_provider.dart';
 import '../../core/widgets/pin_boxes.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
@@ -25,23 +23,18 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
   String _buildNumber = '';
   late AnimationController _entranceController;
   late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
     _loadAppInfo();
     _entranceController = AnimationController(
-      duration: DesignTokens.durationSlow,
+      duration: DesignTokens.durationNormal,
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve),
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _entranceController, curve: DesignTokens.emphasizedCurve));
     _entranceController.forward();
   }
 
@@ -97,6 +90,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
 
     await showDialog(
       context: context,
+      useSafeArea: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => _StyledDialog(
           title: 'Change PIN',
@@ -182,8 +176,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                     padding: const EdgeInsets.only(top: DesignTokens.space2),
                     child: Text(
                       currentPinError!,
-                      style: DesignTokens.bodySmall.copyWith(
-                        color: BrandColors.absentRed,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -204,8 +198,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                     padding: const EdgeInsets.only(top: DesignTokens.space2),
                     child: Text(
                       newPinError!,
-                      style: DesignTokens.bodySmall.copyWith(
-                        color: BrandColors.absentRed,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -226,8 +220,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                     padding: const EdgeInsets.only(top: DesignTokens.space2),
                     child: Text(
                       confirmPinError!,
-                      style: DesignTokens.bodySmall.copyWith(
-                        color: BrandColors.absentRed,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -252,6 +246,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
 
     await showDialog(
       context: context,
+      useSafeArea: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => _StyledDialog(
           title: 'Set Up PIN',
@@ -314,10 +309,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
               children: [
                 Text(
                   'Set up a 4-digit PIN for admin access',
-                  style: DesignTokens.bodyMedium.copyWith(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? BrandColors.darkTextSecondary
-                        : BrandColors.lightTextSecondary,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: DesignTokens.space4),
@@ -336,8 +329,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                     padding: const EdgeInsets.only(top: DesignTokens.space2),
                     child: Text(
                       newPinError!,
-                      style: DesignTokens.bodySmall.copyWith(
-                        color: BrandColors.absentRed,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -358,8 +351,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                     padding: const EdgeInsets.only(top: DesignTokens.space2),
                     child: Text(
                       confirmPinError!,
-                      style: DesignTokens.bodySmall.copyWith(
-                        color: BrandColors.absentRed,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -398,7 +391,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('PIN changed successfully'),
-            backgroundColor: BrandColors.presentGreen,
+            backgroundColor: Color(0xFF1B8A3A),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
@@ -411,7 +404,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.errorMessage ?? 'Failed to change PIN'),
-            backgroundColor: BrandColors.absentRed,
+            backgroundColor: Color(0xFFD0021B),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
@@ -445,7 +438,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('PIN set up successfully'),
-            backgroundColor: BrandColors.presentGreen,
+            backgroundColor: Color(0xFF1B8A3A),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
@@ -458,7 +451,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.errorMessage ?? 'Failed to set up PIN'),
-            backgroundColor: BrandColors.absentRed,
+            backgroundColor: Color(0xFFD0021B),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
@@ -470,28 +463,42 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
   }
 
   Future<void> _showLogoutConfirmation() async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     final confirmed = await showDialog<bool>(
       context: context,
+      useSafeArea: true,
       builder: (context) => _StyledDialog(
         title: 'Logout',
         isDark: Theme.of(context).brightness == Brightness.dark,
-        content: const Text(
+        content: Text(
           'Are you sure you want to logout?',
+          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
-              backgroundColor: BrandColors.absentRed,
+              backgroundColor: colorScheme.error,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
               ),
             ),
-            child: const Text('Logout'),
+            child: Text(
+              'Logout',
+              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
@@ -508,28 +515,31 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: colorScheme.surface,
       extendBody: true,
-      body: authState is AuthAuthenticated
-          ? _buildSettingsContent(textPrimary, textSecondary, isDark)
-          : Center(
-              child: Text(
-                'Not logged in',
-                style: DesignTokens.bodyLarge.copyWith(color: textSecondary),
+      body: SafeArea(
+        top: true,
+        child: authState is AuthAuthenticated
+            ? _buildSettingsContent()
+            : Center(
+                child: Text(
+                  'Not logged in',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
-            ),
-      bottomNavigationBar: _buildFloatingNavBar(isDark),
+      ),
+      bottomNavigationBar: _buildGlassNavBar(),
     );
   }
 
-  Widget _buildFloatingNavBar(bool isDark) {
-    return FloatingNavBar(
+  Widget _buildGlassNavBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GlassNavBar(
       selectedIndex: _selectedIndex,
       onDestinationSelected: _onTabSelected,
       destinations: const [
@@ -549,180 +559,179 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
           label: 'Settings',
         ),
       ],
-      isDark: isDark,
-      accentColor: BrandColors.primary,
+      isDark: Theme.of(context).brightness == Brightness.dark,
+      accentColor: colorScheme.primary,
     );
   }
 
-  Widget _buildSettingsContent(Color textPrimary, Color textSecondary, bool isDark) {
+  Widget _buildSettingsContent() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: Column(
-          children: [
-            // Header with profile menu
-            _buildSettingsHeader(textPrimary, textSecondary, isDark),
-            // Settings content
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  DesignTokens.space6,
-                  DesignTokens.space4,
-                  DesignTokens.space6,
-                  DesignTokens.space6 + 120,
+      child: Column(
+        children: [
+          // Header with profile menu
+          _buildSettingsHeader(colorScheme, textTheme),
+          // Settings content
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(
+                DesignTokens.space6,
+                DesignTokens.space4,
+                DesignTokens.space6,
+                DesignTokens.space6 + 120,
+              ),
+              children: [
+                // Appearance section
+                _buildSectionHeader('Appearance', colorScheme),
+                SoftCard(
+                  isDark: Theme.of(context).brightness == Brightness.dark,
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.dark_mode_outlined, color: colorScheme.onSurfaceVariant),
+                        title: Text('Theme', style: textTheme.titleMedium),
+                        subtitle: Text('System default (Dark)', style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                        onTap: () {},
+                      ),
+                    ],
+                  ),
                 ),
-                children: [
-                  // Appearance section
-                  _buildSectionHeader('Appearance', textPrimary),
-                  SoftCard(
-                    isDark: isDark,
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.dark_mode_outlined),
-                          title: const Text('Theme'),
-                          subtitle: const Text('Light, Dark, or System default'),
-                          trailing: const ThemeToggleButton(),
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: DesignTokens.space4),
+                const SizedBox(height: DesignTokens.space4),
 
-                  // Security section
-                  _buildSectionHeader('Security', textPrimary),
-                  SoftCard(
-                    isDark: isDark,
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.lock_outline),
-                          title: const Text('Change Admin PIN'),
-                          subtitle: const Text('Update your 4-digit admin PIN'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: _showChangePinDialog,
-                        ),
-                      ],
-                    ),
+                // Security section
+                _buildSectionHeader('Security', colorScheme),
+                SoftCard(
+                  isDark: Theme.of(context).brightness == Brightness.dark,
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.lock_outline, color: colorScheme.onSurfaceVariant),
+                        title: Text('Change Admin PIN', style: textTheme.titleMedium),
+                        subtitle: Text('Update your 4-digit admin PIN', style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                        trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                        onTap: _showChangePinDialog,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: DesignTokens.space4),
+                ),
+                const SizedBox(height: DesignTokens.space4),
 
-                  // App Info section
-                  _buildSectionHeader('App Information', textPrimary),
-                  SoftCard(
-                    isDark: isDark,
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.info_outline),
-                          title: const Text('Version'),
-                          subtitle: Text('$_appVersion ($_buildNumber)'),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.description_outlined),
-                          title: const Text('Open Source Licenses'),
-                          subtitle: const Text('View third-party licenses'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => showLicensePage(context: context),
-                        ),
-                      ],
-                    ),
+                // App Info section
+                _buildSectionHeader('App Information', colorScheme),
+                SoftCard(
+                  isDark: Theme.of(context).brightness == Brightness.dark,
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.info_outline, color: colorScheme.onSurfaceVariant),
+                        title: Text('Version', style: textTheme.titleMedium),
+                        subtitle: Text('$_appVersion ($_buildNumber)', style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                      ),
+                      Divider(height: 1, color: colorScheme.outlineVariant),
+                      ListTile(
+                        leading: Icon(Icons.description, color: colorScheme.onSurfaceVariant),
+                        title: Text('Open Source Licenses', style: textTheme.titleMedium),
+                        subtitle: Text('View third-party licenses', style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                        trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                        onTap: () => showLicensePage(context: context),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: DesignTokens.space4),
+                ),
+                const SizedBox(height: DesignTokens.space4),
 
-                  // About section
-                  SoftCard(
-                    isDark: isDark,
-                    padding: const EdgeInsets.all(DesignTokens.space6),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: BrandColors.primary.withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.school_rounded,
-                            color: BrandColors.primary,
-                            size: 60,
-                          ),
+                // About section
+                SoftCard(
+                  isDark: Theme.of(context).brightness == Brightness.dark,
+                  padding: const EdgeInsets.all(DesignTokens.space6),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(height: DesignTokens.space4),
-                        Text(
-                          'Atlendify',
-                          style: DesignTokens.headlineSmall.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: textPrimary,
-                          ),
+                        child: Icon(
+                          Icons.school_rounded,
+                          color: colorScheme.primary,
+                          size: 60,
                         ),
-                        const SizedBox(height: DesignTokens.space1),
-                        Text(
-                          'Attendance Management System',
-                          style: DesignTokens.bodyMedium.copyWith(
-                            color: textSecondary,
-                          ),
+                      ),
+                      const SizedBox(height: DesignTokens.space4),
+                      Text(
+                        'Atlendify',
+                        style: textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
                         ),
-                        const SizedBox(height: DesignTokens.space1),
-                        Text(
-                          'Version $_appVersion ($_buildNumber)',
-                          style: DesignTokens.bodySmall.copyWith(
-                            color: textSecondary.withValues(alpha: 0.7),
-                          ),
+                      ),
+                      const SizedBox(height: DesignTokens.space1),
+                      Text(
+                        'Attendance Management System',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: DesignTokens.space1),
+                      Text(
+                        'Version $_appVersion ($_buildNumber)',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: DesignTokens.space6),
+                ),
+                const SizedBox(height: DesignTokens.space6),
 
-                  // Logout button
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _showLogoutConfirmation,
-                      icon: const Icon(Icons.logout_rounded),
-                      label: const Text('Logout'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: BrandColors.absentRed,
-                        side: BorderSide(color: BrandColors.absentRed),
-                        padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
-                        ),
+                // Logout button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _showLogoutConfirmation,
+                    icon: Icon(Icons.logout_rounded, color: colorScheme.error),
+                    label: Text('Logout', style: TextStyle(color: colorScheme.error)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: colorScheme.error,
+                      side: BorderSide(color: colorScheme.error),
+                      padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
                       ),
                     ),
                   ),
-                  const SizedBox(height: DesignTokens.space2),
-                ],
-              ),
+                ),
+                const SizedBox(height: DesignTokens.space2),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title, Color textPrimary) {
+  Widget _buildSectionHeader(String title, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: DesignTokens.space2),
       child: Text(
         title,
         style: DesignTokens.titleSmall.copyWith(
           fontWeight: FontWeight.w600,
-          color: BrandColors.primary,
+          color: colorScheme.primary,
         ),
       ),
     );
   }
 
-  Widget _buildSettingsHeader(Color textPrimary, Color textSecondary, bool isDark) {
+  Widget _buildSettingsHeader(ColorScheme colorScheme, TextTheme textTheme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         DesignTokens.space6,
@@ -738,29 +747,27 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
               children: [
                 Text(
                   'Settings',
-                  style: DesignTokens.headlineLarge.copyWith(
-                    color: textPrimary,
+                  style: textTheme.headlineLarge?.copyWith(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: DesignTokens.space1),
                 Text(
                   'Manage your preferences',
-                  style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
           ),
-          const ThemeToggleButton(),
-          const SizedBox(width: DesignTokens.space2),
-          _buildProfileMenu(textPrimary, textSecondary, isDark: isDark),
+          _buildProfileMenu(colorScheme, textTheme),
         ],
       ),
     );
   }
 
-  Widget _buildProfileMenu(Color textPrimary, Color textSecondary, {required bool isDark}) {
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+  Widget _buildProfileMenu(ColorScheme colorScheme, TextTheme textTheme) {
+    final bgColor = colorScheme.surfaceContainerHighest;
     final authState = ref.read(authProvider);
     final session = authState is AuthAuthenticated ? authState.session : null;
     final user = session?.student;
@@ -789,7 +796,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                 AvatarCircle(
                   name: user.fullName,
                   size: 40,
-                  isDark: isDark,
+                  isDark: Theme.of(context).brightness == Brightness.dark,
                 ),
                 const SizedBox(width: DesignTokens.space3),
                 Expanded(
@@ -798,15 +805,15 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                     children: [
                       Text(
                         user.fullName,
-                        style: DesignTokens.bodyMedium.copyWith(
+                        style: textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       Text(
                         session?.user.email ?? '',
-                        style: DesignTokens.bodySmall.copyWith(
-                          color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -822,9 +829,9 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
           value: 'profile',
           child: Row(
             children: [
-              Icon(Icons.person_outline_rounded, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+              Icon(Icons.person_outline_rounded, size: 20, color: colorScheme.onSurface),
               const SizedBox(width: DesignTokens.space2),
-              Text('My Profile', style: DesignTokens.labelLarge),
+              Text('My Profile', style: textTheme.labelLarge),
             ],
           ),
         ),
@@ -832,9 +839,9 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
           value: 'change_avatar',
           child: Row(
             children: [
-              Icon(Icons.camera_alt_outlined, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+              Icon(Icons.camera_alt_outlined, size: 20, color: colorScheme.onSurface),
               const SizedBox(width: DesignTokens.space2),
-              Text('Change Picture', style: DesignTokens.labelLarge),
+              Text('Change Picture', style: textTheme.labelLarge),
             ],
           ),
         ),
@@ -843,9 +850,9 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
           value: 'logout',
           child: Row(
             children: [
-              Icon(Icons.logout_rounded, size: 20, color: BrandColors.absentRed),
+              Icon(Icons.logout_rounded, size: 20, color: colorScheme.error),
               const SizedBox(width: DesignTokens.space2),
-              Text('Logout', style: DesignTokens.labelLarge.copyWith(color: BrandColors.absentRed)),
+              Text('Logout', style: textTheme.labelLarge?.copyWith(color: colorScheme.error)),
             ],
           ),
         ),
@@ -856,55 +863,40 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
           color: bgColor,
           borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
           border: Border.all(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            color: colorScheme.outlineVariant,
             width: 1,
           ),
         ),
         child: AvatarCircle(
           name: user?.fullName,
           size: 36,
-          isDark: isDark,
+          isDark: Theme.of(context).brightness == Brightness.dark,
         ),
       ),
     );
   }
 
   void _showChangeAvatarDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: bgColor,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: 1,
-          ),
-        ),
-        title: Text(
-          'Change Profile Picture',
-          style: DesignTokens.headlineSmall.copyWith(
-            color: textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+      useSafeArea: true,
+      builder: (context) => KeyboardSafeDialog(
+        isDark: Theme.of(context).brightness == Brightness.dark,
+        title: 'Change Profile Picture',
         content: Text(
           'This feature will be implemented soon. You can pick an image from gallery or camera.',
-          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: DesignTokens.labelLarge.copyWith(
-                color: textSecondary,
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -921,14 +913,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
             ),
             child: Text(
               'Pick Image',
-              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],
-        actionsPadding: const EdgeInsets.symmetric(
-          horizontal: DesignTokens.space4,
-          vertical: DesignTokens.space3,
-        ),
       ),
     );
   }
@@ -949,29 +937,34 @@ class _StyledDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final outlineColor = isDark ? BrandColors.darkOutline : BrandColors.lightOutline;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return AlertDialog(
-      backgroundColor: bgColor,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-        side: BorderSide(color: outlineColor, width: 1),
-      ),
-      title: Text(
-        title,
-        style: DesignTokens.headlineSmall.copyWith(
-          color: textPrimary,
-          fontWeight: FontWeight.w700,
+    return AnimatedPadding(
+      duration: DesignTokens.durationNormal,
+      curve: DesignTokens.emphasizedCurve,
+      padding: MediaQuery.of(context).viewInsets,
+      child: AlertDialog(
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
-      ),
-      content: content,
-      actions: actions,
-      actionsPadding: const EdgeInsets.symmetric(
-        horizontal: DesignTokens.space4,
-        vertical: DesignTokens.space2,
+        title: Text(
+          title,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: content,
+        ),
+        actions: actions,
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space4,
+          vertical: DesignTokens.space2,
+        ),
       ),
     );
   }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/brand_colors.dart';
 
 /// Minimalist splash screen - just shows brand mark with subtle animation
 /// All navigation logic is handled by router redirect
@@ -50,12 +49,10 @@ class _SplashPageState extends ConsumerState<SplashPage> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
-    final logoTint = isDark ? BrandColors.logoTintDark : BrandColors.logoTintLight;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: colorScheme.surface,
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,
@@ -65,11 +62,15 @@ class _SplashPageState extends ConsumerState<SplashPage> with SingleTickerProvid
               child: ScaleTransition(
                 scale: _scale,
                 child: ColorFiltered(
-                  colorFilter: ColorFilter.mode(logoTint, BlendMode.srcIn),
+                  colorFilter: ColorFilter.mode(
+                    colorScheme.primary,
+                    BlendMode.srcIn,
+                  ),
                   child: Image.asset(
                     'assets/images/logo_mark.png',
                     width: 96,
                     height: 96,
+                    semanticLabel: 'Atlendify Logo',
                   ),
                 ),
               ),
