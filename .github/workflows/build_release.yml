@@ -40,11 +40,15 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release --no-tree-shake-icons
 
+      - name: Rename APK
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/Atlendify-${{ github.ref_name }}.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/Atlendify-${{ github.ref_name }}.apk
           retention-days: 30
 
   build-ios:
@@ -86,6 +90,10 @@ jobs:
           cd build/ios/ipa
           zip -r atlendify-unsigned.ipa Payload
 
+      - name: Rename IPA
+        run: |
+          mv build/ios/ipa/atlendify-unsigned.ipa build/ios/ipa/Atlendify-${{ github.ref_name }}-unsigned.ipa
+
       - name: Verify IPA output
         run: |
           echo "Checking for IPA files..."
@@ -95,7 +103,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: atlendify-unsigned-ipa
-          path: build/ios/ipa/atlendify-unsigned.ipa
+          path: build/ios/ipa/Atlendify-${{ github.ref_name }}-unsigned.ipa
           retention-days: 30
 
   create-release:
@@ -116,14 +124,6 @@ jobs:
         with:
           name: atlendify-unsigned-ipa
           path: artifacts/ios
-
-      - name: Rename APK
-        run: |
-          mv artifacts/android/app-release.apk artifacts/android/Atlendify-${{ github.ref_name }}.apk
-
-      - name: Rename IPA
-        run: |
-          mv artifacts/ios/atlendify-unsigned.ipa artifacts/ios/Atlendify-${{ github.ref_name }}-unsigned.ipa
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -161,6 +161,17 @@ jobs:
             ### 👥 Role-Based Access
             - **Admin**: Subject management, session control, QR scanning, reports, settings
             - **Student**: Profile view, personal attendance records
+
+            ## 📸 Demo Screenshots
+
+            | Screen | Description |
+            |--------|-------------|
+            | Splash & Auth | Animated splash → Login/Register with theme toggle |
+            | Admin Dashboard | Subjects grid, quick actions, navigation |
+            | Subject Dashboard | Session card, live scanner, attendance table |
+            | QR Scanner | Embedded camera with overlay guide |
+            | PDF Export | Professional reports with branding |
+            | Student View | Personal records with status badges |
 
             ## 📦 Downloads
 
