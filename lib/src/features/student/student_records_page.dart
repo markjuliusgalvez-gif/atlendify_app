@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
-import '../../core/theme/brand_colors.dart';
-import '../../core/theme/design_tokens.dart';
+import '../../core/theme/design_tokens.dart'
+    show DesignTokens;
+import '../../core/widgets/app_bottom_nav_bar.dart';
+import '../../core/widgets/app_header.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
@@ -35,121 +37,122 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
     }
   }
 
+  static const List<NavigationDestination> _destinations = [
+    NavigationDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home_rounded),
+      label: 'Home',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.history_outlined),
+      selectedIcon: Icon(Icons.history_rounded),
+      label: 'My Records',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.person_outline),
+      selectedIcon: Icon(Icons.person_rounded),
+      label: 'Profile',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final session = authState is AuthAuthenticated ? authState.session : null;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: bgColor,
-      extendBody: true,
+      backgroundColor: colorScheme.surface,
       body: session != null
-          ? _buildRecordsContent(session, textPrimary, textSecondary, isDark)
+          ? _buildRecordsContent(session, colorScheme, textTheme)
           : Center(
               child: Text(
                 'Not logged in',
-                style: DesignTokens.bodyLarge.copyWith(color: textSecondary),
+                style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ),
-      bottomNavigationBar: _buildFloatingNavBar(isDark),
+      bottomNavigationBar: AppBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onTabSelected,
+        destinations: _destinations,
+        accentColor: colorScheme.primary,
+      ),
     );
   }
 
-  Widget _buildFloatingNavBar(bool isDark) {
-    return FloatingNavBar(
-      selectedIndex: _selectedIndex,
-      onDestinationSelected: _onTabSelected,
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home_rounded),
-          label: 'Home',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.history_outlined),
-          selectedIcon: Icon(Icons.history_rounded),
-          label: 'My Records',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person_rounded),
-          label: 'Profile',
-        ),
-      ],
-      isDark: isDark,
-      accentColor: BrandColors.primary,
-    );
-  }
-
-  Widget _buildRecordsContent(UserSession session, Color textPrimary, Color textSecondary, bool isDark) {
-    return Column(
-      children: [
-        // Header
-        _buildRecordsHeader(textPrimary, textSecondary, isDark),
-        // Records list
-        Expanded(
-          child: FutureBuilder<List<Attendance>>(
-            future: _fetchAttendance(session.student!.id!),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(color: BrandColors.primary),
-                      const SizedBox(height: DesignTokens.space4),
-                      Text(
-                        'Loading records...',
-                        style: DesignTokens.bodyMedium.copyWith(
-                          color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              if (snapshot.hasError) {
-                return ErrorState(
-                  message: snapshot.error.toString(),
-                  isDark: isDark,
-                  onRetry: () => setState(() {}),
-                );
-              }
-
-              final records = snapshot.data ?? [];
-              final filteredRecords = _applyFilters(records);
-
-              if (filteredRecords.isEmpty) {
-                return _buildEmptyState(textPrimary, textSecondary, isDark);
-              }
-
-              return RefreshIndicator(
-                onRefresh: () async => setState(() {}),
-                color: BrandColors.primary,
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(
-                    DesignTokens.space6,
-                    DesignTokens.space4,
-                    DesignTokens.space6,
-                    DesignTokens.space6 + 100,
-                  ),
-                  itemCount: filteredRecords.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: DesignTokens.space3),
-                  itemBuilder: (context, index) {
-                    final attendance = filteredRecords[index];
-                    return _buildRecordCard(attendance, context, isDark);
-                  },
-                ),
-              );
-            },
+  Widget _buildRecordsContent(UserSession session, ColorScheme colorScheme, TextTheme textTheme) {
+    return SafeArea(
+      top: true,
+      child: Column(
+        children: [
+          // Header
+          AppHeader(
+            title: 'My Records',
+            subtitle: 'View your attendance history',
+            showProfileMenu: true,
           ),
-        ),
-      ],
+          // Records list
+          Expanded(
+            child: FutureBuilder<List<Attendance>>(
+              future: _fetchAttendance(session.student!.id!),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: colorScheme.primary),
+                        const SizedBox(height: DesignTokens.space4),
+                        Text(
+                          'Loading records...',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return ErrorState(
+                    message: snapshot.error.toString(),
+                    isDark: Theme.of(context).brightness == Brightness.dark,
+                    onRetry: () => setState(() {}),
+                  );
+                }
+
+                final records = snapshot.data ?? [];
+                final filteredRecords = _applyFilters(records);
+
+                if (filteredRecords.isEmpty) {
+                  return _buildEmptyState(colorScheme, textTheme);
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () async => setState(() {}),
+                  color: colorScheme.primary,
+                  child: ListView.separated(
+                    padding: EdgeInsets.fromLTRB(
+                      DesignTokens.space6,
+                      DesignTokens.space4,
+                      DesignTokens.space6,
+                      DesignTokens.space6 + DesignTokens.bottomBarHeight,
+                    ),
+                    itemCount: filteredRecords.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: DesignTokens.space3),
+                    itemBuilder: (context, index) {
+                      final attendance = filteredRecords[index];
+                      return _buildRecordCard(attendance, context, colorScheme, textTheme);
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -183,42 +186,7 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
     return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  Widget _buildRecordsHeader(Color textPrimary, Color textSecondary, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        DesignTokens.space5,
-        DesignTokens.space5,
-        DesignTokens.space5,
-        DesignTokens.space3,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'My Records',
-                  style: DesignTokens.headlineMedium.copyWith(
-                    color: textPrimary,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: DesignTokens.space1),
-                Text(
-                  'View your attendance history',
-                  style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(Color textPrimary, Color textSecondary, bool isDark) {
+  Widget _buildEmptyState(ColorScheme colorScheme, TextTheme textTheme) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(DesignTokens.space6),
@@ -228,21 +196,21 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
             Container(
               padding: const EdgeInsets.all(DesignTokens.space6),
               decoration: BoxDecoration(
-                color: (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant).withValues(alpha: 0.5),
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(DesignTokens.radiusCircle),
               ),
               child: Icon(
                 Icons.history_outlined,
                 size: 64,
-                color: textSecondary,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: DesignTokens.space6),
             Text(
               'No attendance records',
-              style: DesignTokens.headlineSmall.copyWith(
+              style: textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w700,
-                color: textPrimary,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: DesignTokens.space3),
@@ -250,8 +218,8 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
               _selectedStatus != null || _searchQuery != null
                   ? 'No records match your filters'
                   : 'Your attendance history will appear here',
-              style: DesignTokens.bodyLarge.copyWith(
-                color: textSecondary,
+              style: textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
               textAlign: TextAlign.center,
             ),
@@ -266,7 +234,7 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
                     _searchQuery = null;
                   });
                 },
-                isDark: isDark,
+                isDark: Theme.of(context).brightness == Brightness.dark,
               ),
             ],
           ],
@@ -275,35 +243,35 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
     );
   }
 
-  Widget _buildRecordCard(Attendance attendance, BuildContext context, bool isDark) {
+  Widget _buildRecordCard(Attendance attendance, BuildContext context, ColorScheme colorScheme, TextTheme textTheme) {
     Color statusColor;
     IconData statusIcon;
     String statusLabel;
 
     switch (attendance.status) {
       case 'present':
-        statusColor = BrandColors.presentGreen;
+        statusColor = const Color(0xFF1B8A3A);
         statusIcon = Icons.check_circle_rounded;
         statusLabel = 'Present';
         break;
       case 'late':
-        statusColor = BrandColors.lateAmber;
+        statusColor = const Color(0xFFF5A623);
         statusIcon = Icons.access_time_rounded;
         statusLabel = 'Late';
         break;
       case 'absent':
-        statusColor = BrandColors.absentRed;
+        statusColor = const Color(0xFFD0021B);
         statusIcon = Icons.cancel_rounded;
         statusLabel = 'Absent';
         break;
       default:
-        statusColor = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+        statusColor = colorScheme.onSurfaceVariant;
         statusIcon = Icons.help_outline_rounded;
         statusLabel = 'Unknown';
     }
 
     return SoftCard(
-      isDark: isDark,
+      isDark: Theme.of(context).brightness == Brightness.dark,
       padding: const EdgeInsets.all(DesignTokens.space5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,15 +297,15 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
                   children: [
                     Text(
                       'Session on ${_formatTimestamp(attendance.scannedAt)}',
-                      style: DesignTokens.titleMedium.copyWith(
+                      style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     Text(
                       'Marked at ${_formatTime(attendance.scannedAt)}',
-                      style: DesignTokens.bodyMedium.copyWith(
-                        color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -351,7 +319,7 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
                 ),
                 child: Text(
                   statusLabel,
-                  style: DesignTokens.labelLarge.copyWith(
+                  style: textTheme.labelLarge?.copyWith(
                     color: statusColor,
                     fontWeight: FontWeight.w600,
                   ),
@@ -365,13 +333,13 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
               Icon(
                 Icons.info_outline_rounded,
                 size: 16,
-                color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                color: colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: DesignTokens.space1),
               Text(
                 'Source: ${attendance.source}',
-                style: DesignTokens.bodySmall.copyWith(
-                  color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],

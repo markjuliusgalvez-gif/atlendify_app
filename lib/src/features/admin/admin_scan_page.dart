@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,11 +8,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
-import '../../core/services/qr_service.dart';
-import '../../core/services/status_rules.dart';
-import '../../core/theme/brand_colors.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/theme_provider.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
@@ -110,7 +107,6 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
     }
   }
 
-  
   void _onSessionChanged(Session? session) {
     setState(() => _selectedSession = session);
   }
@@ -134,127 +130,160 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
     _processQrCode(code);
   }
 
+  /// Parse QR data flexibly - accepts JSON, pipe-delimited, or raw student number
+  Map<String, String> _parseQrData(String qrData) {
+    // Try JSON format first (from QrService)
+    try {
+      final json = jsonDecode(qrData) as Map<String, dynamic>;
+      if (json.containsKey('sn') && json.containsKey('n')) {
+        return {
+          'studentNumber': json['sn'] as String,
+          'fullName': utf8.decode(base64Url.decode(json['n'] as String)),
+        };
+      }
+    } catch (_) {
+      // Not JSON, try pipe-delimited
+    }
+
+    // Try pipe-delimited format (studentNumber|fullName|timestamp)
+    final parts = qrData.split('|');
+    if (parts.length >= 2) {
+      return {
+        'studentNumber': parts[0].trim(),
+        'fullName': parts[1].trim(),
+      };
+    }
+
+    // Fallback: treat entire string as student number
+    return {
+      'studentNumber': qrData.trim(),
+      'fullName': 'Unknown Student',
+    };
+  }
+
   Future<void> _processQrCode(String qrData) async {
     if (_selectedSession == null) {
       _playErrorSound();
-      _showSnackBar('Please select a session first');
+      _showSnackBar('Please select a session first', isError: true);
       _isScanning = false;
       return;
     }
 
-    final now = DateTime.now();
-    final result = QrService.verifyQr(qrData, now);
+    // Pause scanner while processing
+    _scannerController?.stop();
 
-    switch (result) {
-      case ValidQrResult():
-        await _handleValidQr(result.studentNumber, result.fullName);
-        break;
-      case OldCodeQrResult():
-        _playLateSound();
-        _showSnackBar('${result.message} (${result.fullName})');
-        break;
-      case InvalidQrResult():
-        _playErrorSound();
-        _showSnackBar('Invalid QR code');
-        break;
-      case NotEnrolledQrResult():
-        _playErrorSound();
-        _showSnackBar('Student not enrolled in this subject');
-        break;
-      case AlreadyMarkedQrResult():
-        _playErrorSound();
-        _showSnackBar('Already marked as ${result.status} at ${_formatTime(result.time)}');
-        break;
-      case SessionClosedQrResult():
-        _playErrorSound();
-        _showSnackBar('Session is closed');
-        break;
+    // Parse QR data flexibly
+    final parsed = _parseQrData(qrData);
+    final studentNumber = parsed['studentNumber']!;
+    final fullName = parsed['fullName']!;
+
+    final session = _selectedSession!;
+    final studentRepo = StudentRepository();
+    final enrollmentRepo = SubjectStudentRepository();
+    final attendanceRepo = AttendanceRepository();
+    final now = DateTime.now();
+
+    // Check if student already exists in database
+    Student? student = await studentRepo.getByStudentNumber(studentNumber);
+
+    // If student doesn't exist, create new student record
+    if (student == null) {
+      final newStudent = Student(
+        id: null,
+        studentNumber: studentNumber,
+        fullName: fullName,
+        createdAt: now.millisecondsSinceEpoch,
+        updatedAt: now.millisecondsSinceEpoch,
+      );
+      final newStudentId = await studentRepo.insert(newStudent);
+      student = await studentRepo.getById(newStudentId);
+    }
+
+    // At this point student is guaranteed to be non-null
+    final studentId = student!.id!;
+
+    // Auto-enroll student in this subject if not already enrolled
+    final isEnrolled = await enrollmentRepo.isEnrolled(session.subjectId, studentId);
+    if (!isEnrolled) {
+      await enrollmentRepo.enroll(session.subjectId, studentId);
+    }
+
+    // Check if already marked for this session
+    final existingAttendance = await attendanceRepo.getBySessionAndStudent(session.id!, studentId);
+    if (existingAttendance != null) {
+      _playErrorSound();
+      _scannerController?.start();
+      _showSnackBar('$fullName already marked as ${existingAttendance.status}', isError: true);
+      _isScanning = false;
+      return;
+    }
+
+    // Determine status based on time
+    final lateAfterTime = _parseTime(session.lateAfterTime);
+    final startTime = _parseTime(session.startTime);
+
+    String status = 'present';
+    if (now.isAfter(lateAfterTime)) {
+      status = 'late';
+    } else if (now.isBefore(startTime)) {
+      status = 'present'; // Early is still present
+    }
+
+    // Mark attendance
+    try {
+      await attendanceRepo.insert(Attendance(
+        sessionId: session.id!,
+        studentId: studentId,
+        status: status,
+        scannedAt: now.millisecondsSinceEpoch,
+        source: 'scan',
+        createdAt: now.millisecondsSinceEpoch,
+        updatedAt: now.millisecondsSinceEpoch,
+      ));
+
+      _playPresentSound();
+
+      // Show student profile modal with scan result
+      if (mounted) {
+        _showStudentScanResultModal(
+          student: student,
+          status: status,
+          scannedAt: now,
+          sessionDate: session.date,
+          sessionTime: '${session.startTime} - ${session.endTime}',
+        );
+      }
+    } catch (e) {
+      _playErrorSound();
+      _showSnackBar('Error marking attendance: $e', isError: true);
     }
 
     await Future.delayed(const Duration(milliseconds: 1500));
     _isScanning = false;
   }
 
-  Future<void> _handleValidQr(String studentNumber, String fullName) async {
-    final session = _selectedSession!;
-    final studentRepo = StudentRepository();
-    final attendanceRepo = AttendanceRepository();
+  DateTime _parseTime(String timeStr) {
+    final parts = timeStr.split(':');
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = int.tryParse(parts[1]) ?? 0;
     final now = DateTime.now();
-
-    final student = await studentRepo.getByStudentNumber(studentNumber);
-    if (student == null) {
-      _playErrorSound();
-      _showSnackBar('Student not found');
-      return;
-    }
-
-    final enrollmentRepo = SubjectStudentRepository();
-    final isEnrolled = await enrollmentRepo.isEnrolled(session.subjectId, student.id!);
-    if (!isEnrolled) {
-      _playErrorSound();
-      _showSnackBar('$fullName is not enrolled in this subject');
-      return;
-    }
-
-    final existing = await attendanceRepo.getBySessionAndStudent(session.id!, student.id!);
-    if (existing != null) {
-      _playErrorSound();
-      _showSnackBar('$fullName already marked as ${existing.status}');
-      return;
-    }
-
-    final status = StatusRules.determineStatus(
-      scanTime: now,
-      sessionStartTime: session.startTime,
-      sessionLateAfterTime: session.lateAfterTime,
-      sessionEndTime: session.endTime,
-      sessionDate: DateTime.parse(session.date),
-    );
-
-    if (status == AttendanceStatus.rejected) {
-      _playErrorSound();
-      _showSnackBar('Scan time is after session end time');
-      return;
-    }
-
-    if (status == AttendanceStatus.present) {
-      _playPresentSound();
-    } else if (status == AttendanceStatus.late) {
-      _playLateSound();
-    }
-
-    final attendance = Attendance(
-      sessionId: session.id!,
-      studentId: student.id!,
-      status: status.name,
-      scannedAt: now.millisecondsSinceEpoch,
-      source: 'scan',
-      createdAt: now.millisecondsSinceEpoch,
-      updatedAt: now.millisecondsSinceEpoch,
-    );
-
-    await attendanceRepo.insert(attendance);
-
-    _showSnackBar('$fullName marked as ${status.name}');
+    return DateTime(now.year, now.month, now.day, hour, minute);
   }
 
   void _playPresentSound() {
     _audioPlayer.play(AssetSource('sounds/present.wav'));
   }
 
-  void _playLateSound() {
-    _audioPlayer.play(AssetSource('sounds/late.wav'));
-  }
-
   void _playErrorSound() {
     _audioPlayer.play(AssetSource('sounds/error.wav'));
   }
 
-  void _showSnackBar(String message) {
+  void _showSnackBar(String message, {required bool isError}) {
+    final colorScheme = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message, style: DesignTokens.bodyMedium.copyWith(color: Colors.white)),
-        backgroundColor: BrandColors.absentRed,
+        backgroundColor: isError ? colorScheme.error : const Color(0xFF1B8A3A),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton)),
         duration: const Duration(seconds: 2),
@@ -262,19 +291,14 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
     );
   }
 
-  String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: bgColor,
-      extendBody: false, // Don't extend body - we want full screen
+      backgroundColor: colorScheme.surface,
+      extendBody: false,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -286,9 +310,9 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
         ),
         title: Text(
           'Scan Attendance',
-          style: DesignTokens.headlineSmall.copyWith(
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
-            color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+            color: colorScheme.onSurface,
           ),
         ),
         actions: [
@@ -297,37 +321,34 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh Sessions',
           ),
-          const ThemeToggleButton(),
           const SizedBox(width: DesignTokens.space2),
-          _buildProfileMenu(isDark),
+          _buildProfileMenu(colorScheme),
         ],
       ),
       body: authState is AuthAuthenticated
-          ? _buildScanContent(isDark)
+          ? _buildScanContent(colorScheme)
           : Center(
               child: Text(
                 'Not logged in',
-                style: DesignTokens.bodyLarge.copyWith(
-                  color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _loadSessions,
-        backgroundColor: BrandColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
         ),
         child: const Icon(Icons.refresh_rounded),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      // No bottomNavigationBar - full screen scanner
     );
   }
 
-  Widget _buildProfileMenu(bool isDark) {
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
+  Widget _buildProfileMenu(ColorScheme colorScheme) {
     final authState = ref.read(authProvider);
     final session = authState is AuthAuthenticated ? authState.session : null;
     final user = session?.student;
@@ -339,10 +360,10 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
             if (mounted) context.push(AppRoutes.studentProfile);
             break;
           case 'change_avatar':
-            _showChangeAvatarDialog();
+            _showChangeAvatarDialog(colorScheme);
             break;
           case 'logout':
-            _showLogoutDialog();
+            _showLogoutDialog(colorScheme);
             break;
         }
       },
@@ -356,7 +377,7 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                 AvatarCircle(
                   name: user.fullName,
                   size: 40,
-                  isDark: isDark,
+                  isDark: Theme.of(context).brightness == Brightness.dark,
                 ),
                 const SizedBox(width: DesignTokens.space3),
                 Expanded(
@@ -365,15 +386,15 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                     children: [
                       Text(
                         user.fullName,
-                        style: DesignTokens.bodyMedium.copyWith(
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       Text(
                         session?.user.email ?? '',
-                        style: DesignTokens.bodySmall.copyWith(
-                          color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -389,9 +410,9 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
           value: 'profile',
           child: Row(
             children: [
-              Icon(Icons.person_outline_rounded, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+              Icon(Icons.person_outline_rounded, size: 20, color: colorScheme.onSurface),
               const SizedBox(width: DesignTokens.space2),
-              Text('My Profile', style: DesignTokens.labelLarge),
+              Text('My Profile', style: Theme.of(context).textTheme.labelLarge),
             ],
           ),
         ),
@@ -399,9 +420,9 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
           value: 'change_avatar',
           child: Row(
             children: [
-              Icon(Icons.camera_alt_outlined, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
+              Icon(Icons.camera_alt_outlined, size: 20, color: colorScheme.onSurface),
               const SizedBox(width: DesignTokens.space2),
-              Text('Change Picture', style: DesignTokens.labelLarge),
+              Text('Change Picture', style: Theme.of(context).textTheme.labelLarge),
             ],
           ),
         ),
@@ -410,9 +431,9 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
           value: 'logout',
           child: Row(
             children: [
-              Icon(Icons.logout_rounded, size: 20, color: BrandColors.absentRed),
+              Icon(Icons.logout_rounded, size: 20, color: colorScheme.error),
               const SizedBox(width: DesignTokens.space2),
-              Text('Logout', style: DesignTokens.labelLarge.copyWith(color: BrandColors.absentRed)),
+              Text('Logout', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: colorScheme.error)),
             ],
           ),
         ),
@@ -420,58 +441,52 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
       child: Container(
         padding: const EdgeInsets.all(DesignTokens.space2),
         decoration: BoxDecoration(
-          color: bgColor,
+          color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
           border: Border.all(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            color: colorScheme.outlineVariant,
             width: 1,
           ),
         ),
         child: AvatarCircle(
           name: user?.fullName,
           size: 36,
-          isDark: isDark,
+          isDark: Theme.of(context).brightness == Brightness.dark,
         ),
       ),
     );
   }
 
-  void _showChangeAvatarDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+  void _showChangeAvatarDialog(ColorScheme colorScheme) {
+    final textTheme = Theme.of(context).textTheme;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: bgColor,
+        backgroundColor: colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: 1,
-          ),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
         title: Text(
           'Change Profile Picture',
-          style: DesignTokens.headlineSmall.copyWith(
-            color: textPrimary,
+          style: textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
           'This feature will be implemented soon. You can pick an image from gallery or camera.',
-          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: DesignTokens.labelLarge.copyWith(
-                color: textSecondary,
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -488,7 +503,7 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
             ),
             child: Text(
               'Pick Image',
-              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -500,42 +515,36 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
     );
   }
 
-  void _showLogoutDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+  void _showLogoutDialog(ColorScheme colorScheme) {
+    final textTheme = Theme.of(context).textTheme;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: bgColor,
+        backgroundColor: colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: 1,
-          ),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
         title: Text(
           'Logout',
-          style: DesignTokens.headlineSmall.copyWith(
-            color: textPrimary,
+          style: textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
           'Are you sure you want to logout?',
-          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: DesignTokens.labelLarge.copyWith(
-                color: textSecondary,
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -546,14 +555,14 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
               ref.read(authProvider.notifier).logout();
             },
             style: FilledButton.styleFrom(
-              backgroundColor: BrandColors.absentRed,
+              backgroundColor: colorScheme.error,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
               ),
             ),
             child: Text(
               'Logout',
-              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
+              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -565,18 +574,18 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
     );
   }
 
-  Widget _buildScanContent(bool isDark) {
+  Widget _buildScanContent(ColorScheme colorScheme) {
     if (_isLoadingSessions) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: BrandColors.primary),
+            CircularProgressIndicator(color: colorScheme.primary),
             const SizedBox(height: DesignTokens.space4),
             Text(
               'Loading sessions...',
-              style: DesignTokens.bodyMedium.copyWith(
-                color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -598,28 +607,28 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                   Container(
                     padding: const EdgeInsets.all(DesignTokens.space6),
                     decoration: BoxDecoration(
-                      color: (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant).withValues(alpha: 0.5),
+                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(DesignTokens.radiusCircle),
                     ),
                     child: Icon(
                       Icons.event_busy_rounded,
                       size: 64,
-                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: DesignTokens.space6),
                   Text(
                     'No active sessions',
-                    style: DesignTokens.headlineSmall.copyWith(
-                      color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: DesignTokens.space3),
                   Text(
                     'Create a session from the Subjects tab or wait for a scheduled session to start',
-                    style: DesignTokens.bodyLarge.copyWith(
-                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -628,7 +637,7 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                     label: 'Refresh',
                     icon: Icons.refresh_rounded,
                     onPressed: _loadSessions,
-                    isDark: isDark,
+                    isDark: Theme.of(context).brightness == Brightness.dark,
                   ),
                 ],
               ),
@@ -647,10 +656,10 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
             Container(
               padding: const EdgeInsets.all(DesignTokens.space4),
               decoration: BoxDecoration(
-                color: isDark ? BrandColors.darkSurface : BrandColors.lightSurface,
+                color: colorScheme.surfaceContainerHighest,
                 border: Border(
                   bottom: BorderSide(
-                    color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+                    color: colorScheme.outlineVariant,
                     width: 1,
                   ),
                 ),
@@ -660,8 +669,8 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                 children: [
                   Text(
                     'Select Session',
-                    style: DesignTokens.labelLarge.copyWith(
-                      color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: DesignTokens.space3),
@@ -671,30 +680,26 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                     decoration: InputDecoration(
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                        borderSide: BorderSide(
-                          color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-                        ),
+                        borderSide: BorderSide(color: colorScheme.outline),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                        borderSide: BorderSide(
-                          color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-                        ),
+                        borderSide: BorderSide(color: colorScheme.outline),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                        borderSide: BorderSide(color: BrandColors.primary, width: 2),
+                        borderSide: BorderSide(color: colorScheme.primary, width: 2),
                       ),
                       filled: true,
-                      fillColor: isDark ? BrandColors.darkBackground : BrandColors.lightBackground,
+                      fillColor: colorScheme.surface,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: DesignTokens.space4,
                         vertical: DesignTokens.space3,
                       ),
                     ),
-                    dropdownColor: isDark ? BrandColors.darkSurface : BrandColors.lightSurface,
-                    style: DesignTokens.bodyMedium.copyWith(
-                      color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                    dropdownColor: colorScheme.surfaceContainerHighest,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface,
                     ),
                     items: _availableSessions.map((session) {
                       return DropdownMenuItem(
@@ -706,7 +711,7 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                           child: Text(
                             'Subject ${session.subjectId} • ${session.date} • ${session.startTime}-${session.endTime}',
                             overflow: TextOverflow.ellipsis,
-                            style: DesignTokens.bodyMedium,
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ),
                       );
@@ -724,8 +729,8 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                     return Center(
                       child: Text(
                         'Select a session to start scanning',
-                        style: DesignTokens.bodyLarge.copyWith(
-                          color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     );
@@ -744,7 +749,7 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                             height: 240,
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: BrandColors.primary,
+                                color: colorScheme.primary,
                                 width: 3,
                               ),
                               borderRadius: BorderRadius.circular(DesignTokens.radiusCard),
@@ -776,7 +781,7 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                                   const SizedBox(width: DesignTokens.space2),
                                   Text(
                                     'Point camera at student QR code',
-                                    style: DesignTokens.bodyMedium.copyWith(
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -814,13 +819,13 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                           Icon(
                             Icons.camera_alt_outlined,
                             size: 64,
-                            color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(height: DesignTokens.space4),
                           Text(
                             'Camera Permission Required',
-                            style: DesignTokens.headlineSmall.copyWith(
-                              color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              color: colorScheme.onSurface,
                               fontWeight: FontWeight.w700,
                             ),
                             textAlign: TextAlign.center,
@@ -828,8 +833,8 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                           const SizedBox(height: DesignTokens.space2),
                           Text(
                             'Please grant camera permission to scan QR codes',
-                            style: DesignTokens.bodyMedium.copyWith(
-                              color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -838,7 +843,7 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
                             label: 'Open Settings',
                             icon: Icons.settings_rounded,
                             onPressed: () => openAppSettings(),
-                            isDark: isDark,
+                            isDark: Theme.of(context).brightness == Brightness.dark,
                           ),
                         ],
                       ),
@@ -848,22 +853,22 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
               ),
             ),
 
-            if (_selectedSession != null) _buildSessionInfoCard(_selectedSession!, isDark),
+            if (_selectedSession != null) _buildSessionInfoCard(_selectedSession!, colorScheme),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSessionInfoCard(Session session, bool isDark) {
+  Widget _buildSessionInfoCard(Session session, ColorScheme colorScheme) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(DesignTokens.space4),
       decoration: BoxDecoration(
-        color: isDark ? BrandColors.darkSurface : BrandColors.lightSurface,
+        color: colorScheme.surfaceContainerHighest,
         border: Border(
           top: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
+            color: colorScheme.outlineVariant,
             width: 1,
           ),
         ),
@@ -873,22 +878,22 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
         children: [
           Text(
             'Session Details',
-            style: DesignTokens.titleMedium.copyWith(
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+              color: colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: DesignTokens.space3),
           Row(
             children: [
               Expanded(
-                child: _buildDetailItem('Date', session.date, isDark),
+                child: _buildDetailItem('Date', session.date, colorScheme),
               ),
               Expanded(
-                child: _buildDetailItem('Time', '${session.startTime} - ${session.endTime}', isDark),
+                child: _buildDetailItem('Time', '${session.startTime} - ${session.endTime}', colorScheme),
               ),
               Expanded(
-                child: _buildDetailItem('Late After', session.lateAfterTime, isDark),
+                child: _buildDetailItem('Late After', session.lateAfterTime, colorScheme),
               ),
             ],
           ),
@@ -900,16 +905,16 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
             ),
             decoration: BoxDecoration(
               color: session.status == 'open'
-                  ? BrandColors.presentGreen.withValues(alpha: 0.12)
-                  : (isDark ? BrandColors.darkSurfaceVariant : BrandColors.lightSurfaceVariant),
+                  ? const Color(0xFF1B8A3A).withValues(alpha: 0.12)
+                  : colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
             ),
             child: Text(
               session.status == 'open' ? 'Open' : 'Closed',
-              style: DesignTokens.labelSmall.copyWith(
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: session.status == 'open'
-                    ? BrandColors.presentGreen
-                    : (isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary),
+                    ? const Color(0xFF1B8A3A)
+                    : colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -919,23 +924,283 @@ class _AdminScanPageState extends ConsumerState<AdminScanPage> with SingleTicker
     );
   }
 
-  Widget _buildDetailItem(String label, String value, bool isDark) {
+  Widget _buildDetailItem(String label, String value, ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: DesignTokens.bodySmall.copyWith(
-            color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: DesignTokens.space1),
         Text(
           value,
-          style: DesignTokens.bodyMedium.copyWith(
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w500,
-            color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
+            color: colorScheme.onSurface,
           ),
+        ),
+      ],
+    );
+  }
+
+  /// Show modal bottom sheet with student scan result
+  void _showStudentScanResultModal({
+    required Student student,
+    required String status,
+    required DateTime scannedAt,
+    required String sessionDate,
+    required String sessionTime,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    // Status color and icon
+    Color statusColor;
+    IconData statusIcon;
+    String statusText;
+    switch (status) {
+      case 'present':
+        statusColor = const Color(0xFF1B8A3A);
+        statusIcon = Icons.check_circle_rounded;
+        statusText = 'Present';
+        break;
+      case 'late':
+        statusColor = const Color(0xFFF5A623);
+        statusIcon = Icons.access_time_rounded;
+        statusText = 'Late';
+        break;
+      default:
+        statusColor = colorScheme.error;
+        statusIcon = Icons.cancel_rounded;
+        statusText = 'Absent';
+    }
+
+    // Format timestamp
+    final formattedTime = '${scannedAt.hour.toString().padLeft(2, '0')}:${scannedAt.minute.toString().padLeft(2, '0')}';
+    final formattedDate = '${scannedAt.day}/${scannedAt.month.toString().padLeft(2, '0')}/${scannedAt.year}';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusSheet)),
+            ),
+            padding: EdgeInsets.only(
+              top: DesignTokens.space4,
+              left: DesignTokens.space6,
+              right: DesignTokens.space6,
+              bottom: DesignTokens.space6 + MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space4),
+
+                // Student avatar and status
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 36,
+                      backgroundColor: statusColor.withValues(alpha: 0.12),
+                      child: Icon(
+                        statusIcon,
+                        color: statusColor,
+                        size: 36,
+                      ),
+                    ),
+                    const SizedBox(width: DesignTokens.space4),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            student.fullName,
+                            style: textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: DesignTokens.space1),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: DesignTokens.space3,
+                              vertical: DesignTokens.space1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
+                            ),
+                            child: Text(
+                              statusText,
+                              style: textTheme.labelLarge?.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: DesignTokens.space5),
+                Divider(color: colorScheme.outlineVariant),
+                const SizedBox(height: DesignTokens.space4),
+
+                // Student details grid
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildModalDetailRow(
+                        'Student Number',
+                        student.studentNumber,
+                        Icons.badge_outlined,
+                        colorScheme,
+                        textTheme,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildModalDetailRow(
+                        'Session',
+                        sessionDate,
+                        Icons.calendar_today_outlined,
+                        colorScheme,
+                        textTheme,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: DesignTokens.space3),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildModalDetailRow(
+                        'Time',
+                        '$formattedTime • $formattedDate',
+                        Icons.access_time_rounded,
+                        colorScheme,
+                        textTheme,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildModalDetailRow(
+                        'Session Time',
+                        sessionTime,
+                        Icons.schedule_outlined,
+                        colorScheme,
+                        textTheme,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: DesignTokens.space5),
+                Divider(color: colorScheme.outlineVariant),
+                const SizedBox(height: DesignTokens.space4),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _scannerController?.start();
+                        },
+                        icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                        label: Text(
+                          'Scan Next',
+                          style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                          ),
+                          side: BorderSide(color: colorScheme.primary),
+                          foregroundColor: colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: DesignTokens.space3),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _scannerController?.start();
+                        },
+                        icon: const Icon(Icons.check_rounded, size: 20),
+                        label: Text(
+                          'OK',
+                          style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                          ),
+                          backgroundColor: statusColor,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildModalDetailRow(String label, String value, IconData icon, ColorScheme colorScheme, TextTheme textTheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
+            const SizedBox(width: DesignTokens.space1),
+            Text(
+              label,
+              style: textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: DesignTokens.space1),
+        Text(
+          value,
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

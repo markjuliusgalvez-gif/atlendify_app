@@ -221,6 +221,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     await signOut();
   }
+
+  /// Update student name in the current session
+  Future<void> updateStudentName(String newName) async {
+    if (state is AuthAuthenticated) {
+      final current = state as AuthAuthenticated;
+      if (current.isStudent && current.session.student != null) {
+        final studentRepo = StudentRepository();
+        final updatedStudent = Student(
+          id: current.session.student!.id,
+          studentNumber: current.session.student!.studentNumber,
+          fullName: newName,
+          userId: current.session.student!.userId,
+          createdAt: current.session.student!.createdAt,
+          updatedAt: DateTime.now().millisecondsSinceEpoch,
+        );
+        await studentRepo.update(updatedStudent);
+
+        final newSession = UserSession(
+          user: current.session.user,
+          student: updatedStudent,
+        );
+        state = AuthAuthenticated(newSession, pinUnlocked: current.pinUnlocked);
+      }
+    }
+  }
 }
 
 /// Auth provider

@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/pin_service.dart';
-import '../../core/theme/brand_colors.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/theme_provider.dart';
 import '../../features/auth/auth_provider.dart';
 import '../../core/router/app_router.dart';
 import '../../core/widgets/pin_boxes.dart';
@@ -54,23 +51,8 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
         curve: DesignTokens.emphasizedCurve,
       ),
     );
-
-    _checkLockout();
     _entranceController.forward();
-  }
-
-  Future<void> _checkLockout() async {
-    final authState = ref.read(authProvider);
-    if (authState is! AuthAuthenticated) return;
-
-    final userId = authState.session.user.id!;
-    final pinService = PinService();
-    final state = await pinService.getLockoutState(userId);
-    if (mounted) {
-      setState(() {
-        _lockoutState = state;
-      });
-    }
+    _checkLockout();
   }
 
   @override
@@ -81,26 +63,43 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
     super.dispose();
   }
 
-  Future<void> _handlePinSubmit(String pin) async {
-    if (_isLoading) return;
-
+  Future<void> _checkLockout() async {
     final authState = ref.read(authProvider);
     if (authState is! AuthAuthenticated) return;
 
     final user = authState.session.user;
-    if (user.pinHash == null || user.pinSalt == null) {
-      // No PIN set - navigate to setup
-      if (mounted) context.go(AppRoutes.adminHome);
-      return;
-    }
+    final userId = user.id ?? 0;
+    final pinService = PinService();
+    final lockoutState = await pinService.getLockoutState(userId);
 
-    final userId = user.id!;
+    if (mounted) {
+      setState(() {
+        _lockoutState = lockoutState;
+      });
+    }
+  }
+
+  Future<void> _handlePinSubmit(String pin) async {
+    if (pin.length != 4) return;
 
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
+    final authState = ref.read(authProvider);
+    if (authState is! AuthAuthenticated) return;
+
+    // For presentation mode: accept any 4-digit PIN
+    setState(() {
+      _isLoading = false;
+    });
+    _pinController.clear();
+    ref.read(authProvider.notifier).unlockPin();
+    if (mounted) context.go(AppRoutes.adminHome);
+
+    // Original strict validation code (commented out for presentation mode)
+    /*
     final pinService = PinService();
     final result = await pinService.verifyPin(
       enteredPin: pin,
@@ -133,53 +132,40 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
       });
       await _checkLockout();
     }
-  }
-
-  void _triggerShake() {
-    _shakeController.forward(from: 0);
-    HapticFeedback.heavyImpact();
+    */
   }
 
   void _showForgotPinDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark
-        ? BrandColors.darkTextPrimary
-        : BrandColors.lightTextPrimary;
-    final textSecondary = isDark
-        ? BrandColors.darkTextSecondary
-        : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: bgColor,
+        backgroundColor: colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: 1,
-          ),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
         title: Text(
           'Reset PIN',
-          style: DesignTokens.headlineSmall.copyWith(
-            color: textPrimary,
+          style: textTheme.headlineSmall?.copyWith(
+            color: colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
           'To reset your PIN, please verify your account password first. This feature will be implemented soon.',
-          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
+          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: DesignTokens.labelLarge.copyWith(
-                color: textSecondary,
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -196,7 +182,7 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
             ),
             child: Text(
               'Verify Password',
-              style: DesignTokens.labelLarge.copyWith(
+              style: textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -212,22 +198,11 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark
-        ? BrandColors.darkBackground
-        : BrandColors.lightBackground;
-    final logoTint = isDark
-        ? BrandColors.logoTintDark
-        : BrandColors.logoTintLight;
-    final textPrimary = isDark
-        ? BrandColors.darkTextPrimary
-        : BrandColors.lightTextPrimary;
-    final textSecondary = isDark
-        ? BrandColors.darkTextSecondary
-        : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
-    // Accent color for buttons in dark mode (lighter, more visible)
-    final accentColor = isDark ? BrandColors.primaryLight : BrandColors.primary;
+    // Use primary color for buttons
+    final accentColor = colorScheme.primary;
 
     return PopScope(
       canPop: false,
@@ -240,7 +215,7 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
         }
       },
       child: Scaffold(
-        backgroundColor: bgColor,
+        backgroundColor: colorScheme.surface,
         body: SafeArea(
           child: SingleChildScrollView(
           padding: const EdgeInsets.all(DesignTokens.space6),
@@ -259,18 +234,13 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                      // Theme toggle
-                      Align(
-                        alignment: Alignment.topRight,
-                        child: ThemeToggleButton(),
-                      ),
                       const SizedBox(height: DesignTokens.space6),
 
                       // Logo mark
                       Center(
                         child: ColorFiltered(
                           colorFilter: ColorFilter.mode(
-                            logoTint,
+                            colorScheme.primary,
                             BlendMode.srcIn,
                           ),
                           child: Image.asset(
@@ -285,8 +255,8 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
                       // Title
                       Text(
                         'Admin PIN',
-                        style: DesignTokens.headlineLarge.copyWith(
-                          color: textPrimary,
+                        style: textTheme.headlineLarge?.copyWith(
+                          color: colorScheme.onSurface,
                           fontWeight: FontWeight.w700,
                         ),
                         textAlign: TextAlign.center,
@@ -294,8 +264,8 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
                       const SizedBox(height: DesignTokens.space2),
                       Text(
                         'Enter your 4-digit PIN to access the admin dashboard',
-                        style: DesignTokens.bodyMedium.copyWith(
-                          color: textSecondary,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -334,7 +304,7 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
                           ),
                           child: Text(
                             'Forgot PIN?',
-                            style: DesignTokens.labelLarge.copyWith(
+                            style: textTheme.labelLarge?.copyWith(
                               color: accentColor,
                               fontWeight: FontWeight.w600,
                             ),
@@ -362,7 +332,7 @@ class _PinGatePageState extends ConsumerState<PinGatePage>
                             ),
                             label: Text(
                               'Back to Login',
-                              style: DesignTokens.labelLarge.copyWith(
+                              style: textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
                             ),

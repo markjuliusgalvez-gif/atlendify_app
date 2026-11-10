@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,7 +11,7 @@ import 'package:printing/printing.dart';
 import '../../core/database/repositories.dart';
 import '../../core/theme/brand_colors.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/theme_provider.dart';
+import '../../core/widgets/app_header.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
@@ -190,18 +191,48 @@ class _SubjectDashboardPageState extends ConsumerState<SubjectDashboardPage>
     _handleQrScan(code);
   }
 
-  Future<void> _handleQrScan(String qrData) async {
-    // Parse QR data (format: studentNumber|fullName|timestamp)
-    final parts = qrData.split('|');
-    if (parts.length < 2) {
-      _showSnackBar('Invalid QR code format', isError: true);
-      return;
+  /// Parse QR data flexibly - accepts JSON, pipe-delimited, or raw student number
+  Map<String, String> _parseQrData(String qrData) {
+    // Try JSON format first (from QrService)
+    try {
+      final json = jsonDecode(qrData) as Map<String, dynamic>;
+      if (json.containsKey('sn') && json.containsKey('n')) {
+        return {
+          'studentNumber': json['sn'] as String,
+          'fullName': utf8.decode(base64Url.decode(json['n'] as String)),
+        };
+      }
+    } catch (_) {
+      // Not JSON, try pipe-delimited
     }
 
-    final studentNumber = parts[0];
-    final fullName = parts[1];
+    // Try pipe-delimited format (studentNumber|fullName|timestamp)
+    final parts = qrData.split('|');
+    if (parts.length >= 2) {
+      return {
+        'studentNumber': parts[0].trim(),
+        'fullName': parts[1].trim(),
+      };
+    }
+
+    // Fallback: treat entire string as student number
+    return {
+      'studentNumber': qrData.trim(),
+      'fullName': 'Unknown Student',
+    };
+  }
+
+  Future<void> _handleQrScan(String qrData) async {
+    // Pause scanner while processing
+    _scannerController?.stop();
+
+    // Parse QR data flexibly
+    final parsed = _parseQrData(qrData);
+    final studentNumber = parsed['studentNumber']!;
+    final fullName = parsed['fullName']!;
 
     if (_activeSession == null) {
+      _scannerController?.start();
       _showSnackBar('No active session. Start a session first.', isError: true);
       return;
     }
@@ -225,7 +256,6 @@ class _SubjectDashboardPageState extends ConsumerState<SubjectDashboardPage>
       );
       final newStudentId = await studentRepo.insert(newStudent);
       student = await studentRepo.getById(newStudentId);
-      _showSnackBar('New student registered: $fullName', isError: false);
     }
 
     // At this point student is guaranteed to be non-null
@@ -235,12 +265,14 @@ class _SubjectDashboardPageState extends ConsumerState<SubjectDashboardPage>
     final isEnrolled = await enrollmentRepo.isEnrolled(widget.subjectId, studentId);
     if (!isEnrolled) {
       await enrollmentRepo.enroll(widget.subjectId, studentId);
-      _showSnackBar('$fullName enrolled in ${_subject?.name ?? 'subject'}', isError: false);
+      // Reload enrolled students list
+      await _loadEnrolledStudents();
     }
 
     // Check if already marked for this session
     final existingAttendance = await attendanceRepo.getBySessionAndStudent(_activeSession!.id!, studentId);
     if (existingAttendance != null) {
+      _scannerController?.start();
       _showSnackBar('$fullName already marked as ${existingAttendance.status}', isError: true);
       return;
     }
@@ -271,17 +303,282 @@ class _SubjectDashboardPageState extends ConsumerState<SubjectDashboardPage>
 
       if (mounted) {
         // Immediately update local state for instant UI refresh
-        setState(() {
-          // Reload attendance records
-          _loadAttendanceRecords(_activeSession!.id!);
-          // Reload enrolled students to include newly enrolled student
-          _loadEnrolledStudents();
-        });
-        _showSnackBar('Attendance marked: $fullName - $status', isError: false);
+        await _loadAttendanceRecords(_activeSession!.id!);
+
+        
+        // Show student profile modal with scan result
+        _showStudentScanResultModal(
+          student: student,
+          status: status,
+          scannedAt: now,
+          subjectName: _subject?.name ?? 'Subject',
+          section: _subject?.section ?? '',
+        );
       }
     } catch (e) {
+      _scannerController?.start();
       _showSnackBar('Error marking attendance: $e', isError: true);
     }
+  }
+
+  /// Show modal bottom sheet with student scan result
+  void _showStudentScanResultModal({
+    required Student student,
+    required String status,
+    required DateTime scannedAt,
+    required String subjectName,
+    required String section,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    // Status color and icon
+    Color statusColor;
+    IconData statusIcon;
+    String statusText;
+    switch (status) {
+      case 'present':
+        statusColor = BrandColors.presentGreen;
+        statusIcon = Icons.check_circle_rounded;
+        statusText = 'Present';
+        break;
+      case 'late':
+        statusColor = BrandColors.lateAmber;
+        statusIcon = Icons.access_time_rounded;
+        statusText = 'Late';
+        break;
+      default:
+        statusColor = colorScheme.error;
+        statusIcon = Icons.cancel_rounded;
+        statusText = 'Absent';
+    }
+
+    // Format timestamp
+    final formattedTime = '${scannedAt.hour.toString().padLeft(2, '0')}:${scannedAt.minute.toString().padLeft(2, '0')}';
+    final formattedDate = '${scannedAt.day}/${scannedAt.month.toString().padLeft(2, '0')}/${scannedAt.year}';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusSheet)),
+            ),
+            padding: EdgeInsets.only(
+              top: DesignTokens.space4,
+              left: DesignTokens.space6,
+              right: DesignTokens.space6,
+              bottom: DesignTokens.space6 + MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space4),
+
+                // Student avatar and status
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 36,
+                      backgroundColor: statusColor.withValues(alpha: 0.12),
+                      child: Icon(
+                        statusIcon,
+                        color: statusColor,
+                        size: 36,
+                      ),
+                    ),
+                    const SizedBox(width: DesignTokens.space4),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            student.fullName,
+                            style: textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: DesignTokens.space1),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: DesignTokens.space3,
+                              vertical: DesignTokens.space1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
+                            ),
+                            child: Text(
+                              statusText,
+                              style: textTheme.labelLarge?.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: DesignTokens.space5),
+                Divider(color: colorScheme.outlineVariant),
+                const SizedBox(height: DesignTokens.space4),
+
+                // Student details grid
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDetailRow(
+                        'Student Number',
+                        student.studentNumber,
+                        Icons.badge_outlined,
+                        colorScheme,
+                        textTheme,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildDetailRow(
+                        'Section',
+                        section.isNotEmpty ? section : 'N/A',
+                        Icons.class_outlined,
+                        colorScheme,
+                        textTheme,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: DesignTokens.space3),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDetailRow(
+                        'Subject',
+                        subjectName,
+                        Icons.subject_outlined,
+                        colorScheme,
+                        textTheme,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildDetailRow(
+                        'Time',
+                        '$formattedTime • $formattedDate',
+                        Icons.access_time_rounded,
+                        colorScheme,
+                        textTheme,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: DesignTokens.space5),
+                Divider(color: colorScheme.outlineVariant),
+                const SizedBox(height: DesignTokens.space4),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _scannerController?.start();
+                        },
+                        icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                        label: Text(
+                          'Scan Next',
+                          style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                          ),
+                          side: BorderSide(color: colorScheme.primary),
+                          foregroundColor: colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: DesignTokens.space3),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _scannerController?.start();
+                        },
+                        icon: const Icon(Icons.check_rounded, size: 20),
+                        label: Text(
+                          'OK',
+                          style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                          ),
+                          backgroundColor: statusColor,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, IconData icon, ColorScheme colorScheme, TextTheme textTheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
+            const SizedBox(width: DesignTokens.space1),
+            Text(
+              label,
+              style: textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: DesignTokens.space1),
+        Text(
+          value,
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
   }
 
   DateTime _parseTime(String timeStr) {
@@ -634,54 +931,51 @@ class _SubjectDashboardPageState extends ConsumerState<SubjectDashboardPage>
     final bgColor = isDark ? BrandColors.darkBackground : BrandColors.lightBackground;
     final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
     final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: bgColor,
       extendBody: false,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => context.pop(),
-          icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
-        ),
-        title: Text(
-          _subject?.name ?? 'Subject Dashboard',
-          style: DesignTokens.headlineSmall.copyWith(
-            fontWeight: FontWeight.w700,
-            color: textPrimary,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          if (_activeSession != null && _enrolledStudents.isNotEmpty)
-            IconButton(
-              onPressed: _exportToPdf,
-              icon: const Icon(Icons.picture_as_pdf_rounded, size: 24),
-              tooltip: 'Export Attendance to PDF',
-              color: textPrimary,
+      body: SafeArea(
+        top: false,
+        child: Stack(
+          children: [
+            // Main content
+            Column(
+              children: [
+                // Header
+                AppHeader(
+                  title: _subject?.name ?? 'Subject Dashboard',
+                  subtitle: 'Manage attendance sessions and students',
+                  showProfileMenu: true,
+                  actions: [
+                    if (_activeSession != null && _enrolledStudents.isNotEmpty)
+                      IconButton(
+                        onPressed: _exportToPdf,
+                        icon: const Icon(Icons.picture_as_pdf_rounded, size: 24),
+                        tooltip: 'Export Attendance to PDF',
+                        color: colorScheme.onSurface,
+                      ),
+                  ],
+                ),
+                // Content
+                Expanded(
+                  child: _isLoading
+                      ? _buildLoadingState(isDark, textPrimary, textSecondary)
+                      : _errorMessage != null
+                          ? _buildErrorState(isDark, textPrimary, textSecondary)
+                          : _buildDashboardContent(isDark, textPrimary, textSecondary),
+                ),
+              ],
             ),
-          const ThemeToggleButton(),
-          const SizedBox(width: DesignTokens.space2),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Main content
-          _isLoading
-              ? _buildLoadingState(isDark, textPrimary, textSecondary)
-              : _errorMessage != null
-                  ? _buildErrorState(isDark, textPrimary, textSecondary)
-                  : _buildDashboardContent(isDark, textPrimary, textSecondary),
 
-          // QR Scanner overlay
-          if (_showScanner && _cameraPermissionGranted && _scannerController != null)
-            _buildScannerOverlay(isDark, textPrimary),
-        ],
+            // QR Scanner overlay
+            if (_showScanner && _cameraPermissionGranted && _scannerController != null)
+              _buildScannerOverlay(isDark, textPrimary),
+          ],
+        ),
       ),
-      floatingActionButton: _showScanner ? null : _buildFab(isDark),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      // No floatingActionButton - scanner is only started via inline "Start Scanner" button in Active Session card
       // No bottomNavigationBar - this is a detail page
     );
   }
@@ -782,11 +1076,11 @@ class _SubjectDashboardPageState extends ConsumerState<SubjectDashboardPage>
 
               // Attendance Table
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
                   DesignTokens.space6,
                   0,
                   DesignTokens.space6,
-                  DesignTokens.space6 + 120,
+                  DesignTokens.space6 + DesignTokens.bottomBarHeight,
                 ),
                 sliver: _isLoadingAttendance
                     ? SliverFillRemaining(
@@ -1162,19 +1456,7 @@ class _SubjectDashboardPageState extends ConsumerState<SubjectDashboardPage>
     );
   }
 
-  Widget _buildFab(bool isDark) {
-    return FloatingActionButton(
-      onPressed: _toggleScanner,
-      backgroundColor: BrandColors.primary,
-      foregroundColor: Colors.white,
-      shape: const CircleBorder(),
-      child: Icon(
-        _showScanner ? Icons.videocam_off_rounded : Icons.qr_code_scanner_rounded,
-        size: 28,
-      ),
-    );
-  }
-
+  
   Widget _buildScannerOverlay(bool isDark, Color textPrimary) {
     return Container(
       color: Colors.black87,

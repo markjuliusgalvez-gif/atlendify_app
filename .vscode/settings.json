@@ -1,5 +1,5 @@
 {
     "cmake.sourceDirectory": "C:/Users/markj/Documents/CS106/My Mco Atlendify/atlendify_app/linux",
     "java.compile.nullAnalysis.mode": "automatic",
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "automatic"
 }

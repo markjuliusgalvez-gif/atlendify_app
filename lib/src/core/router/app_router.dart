@@ -1,6 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 // ignore: unnecessary_cast
 import '../../features/auth/auth_provider.dart';
 import '../../features/splash/splash_page.dart';
@@ -16,6 +16,7 @@ import '../../features/admin/subject_dashboard_page.dart';
 import '../../features/admin/admin_records_page.dart';
 import '../../features/admin/admin_settings_page.dart';
 import '../../features/admin/pin_gate_page.dart';
+import '../../core/theme/design_tokens.dart';
 
 /// Route names
 class AppRoutes {
@@ -87,7 +88,7 @@ String? redirectLogic(AuthState authState, String matchedLocation) {
     return AppRoutes.login;
   }
 
-  final authenticated = authState as AuthAuthenticated;
+  final authenticated = authState;
   final isAdmin = authenticated.isAdmin;
   final isAdminLocked = authenticated.isAdminLocked;
   final isAdminUnlocked = authenticated.isAdminUnlocked;
@@ -149,6 +150,26 @@ String? redirectLogic(AuthState authState, String matchedLocation) {
   return null;
 }
 
+/// Custom fade transition page
+class FadeTransitionPage extends CustomTransitionPage<void> {
+  FadeTransitionPage({
+    required super.child,
+    super.key,
+    super.name,
+    super.arguments,
+    super.restorationId,
+  }) : super(
+          transitionDuration: DesignTokens.durationNormal,
+          reverseTransitionDuration: DesignTokens.durationNormal,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+        );
+}
+
 /// Router provider
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -159,74 +180,74 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.splash,
         name: 'splash',
-        builder: (context, state) => const SplashPage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const SplashPage()),
       ),
       GoRoute(
         path: AppRoutes.login,
         name: 'login',
-        builder: (context, state) => const LoginPage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const LoginPage()),
       ),
       GoRoute(
         path: AppRoutes.register,
         name: 'register',
-        builder: (context, state) => const RegisterPage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const RegisterPage()),
       ),
       GoRoute(
         path: AppRoutes.pinGate,
         name: 'pinGate',
-        builder: (context, state) => const PinGatePage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const PinGatePage()),
       ),
 
       // Student routes
       GoRoute(
         path: AppRoutes.studentHome,
         name: 'studentHome',
-        builder: (context, state) => const StudentHomePage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const StudentHomePage()),
       ),
       GoRoute(
         path: AppRoutes.studentRecords,
         name: 'studentRecords',
-        builder: (context, state) => const StudentRecordsPage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const StudentRecordsPage()),
       ),
       GoRoute(
         path: AppRoutes.studentProfile,
         name: 'studentProfile',
-        builder: (context, state) => const StudentProfilePage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const StudentProfilePage()),
       ),
 
       // Admin routes
       GoRoute(
         path: AppRoutes.adminHome,
         name: 'adminHome',
-        builder: (context, state) => const AdminHomePage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const AdminHomePage()),
       ),
       GoRoute(
         path: AppRoutes.adminSubjects,
         name: 'adminSubjects',
-        builder: (context, state) => const AdminSubjectsPage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const AdminSubjectsPage()),
       ),
       GoRoute(
         path: AppRoutes.adminSubjectDashboard,
         name: 'adminSubjectDashboard',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final subjectId = int.parse(state.pathParameters['subjectId']!);
-          return SubjectDashboardPage(subjectId: subjectId);
+          return FadeTransitionPage(child: SubjectDashboardPage(subjectId: subjectId));
         },
       ),
       GoRoute(
         path: AppRoutes.adminScan,
         name: 'adminScan',
-        builder: (context, state) => const AdminScanPage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const AdminScanPage()),
       ),
       GoRoute(
         path: AppRoutes.adminRecords,
         name: 'adminRecords',
-        builder: (context, state) => const AdminRecordsPage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const AdminRecordsPage()),
       ),
       GoRoute(
         path: AppRoutes.adminSettings,
         name: 'adminSettings',
-        builder: (context, state) => const AdminSettingsPage(),
+        pageBuilder: (context, state) => FadeTransitionPage(child: const AdminSettingsPage()),
       ),
     ],
     redirect: (context, state) {
