@@ -6,6 +6,8 @@ import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
 import '../../core/services/pin_service.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/widgets/app_bottom_nav_bar.dart';
+import '../../core/widgets/app_header.dart';
 import '../../core/widgets/pin_boxes.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
@@ -23,6 +25,24 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
   String _buildNumber = '';
   late AnimationController _entranceController;
   late Animation<double> _fadeAnimation;
+
+  static const List<NavigationDestination> _destinations = [
+    NavigationDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home_rounded),
+      label: 'Home',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.subject_outlined),
+      selectedIcon: Icon(Icons.subject_rounded),
+      label: 'Subjects',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.settings_outlined),
+      selectedIcon: Icon(Icons.settings_rounded),
+      label: 'Settings',
+    ),
+  ];
 
   @override
   void initState() {
@@ -159,7 +179,17 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Current PIN section
+                Text(
+                  'Current PIN',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space2),
                 PinBoxes(
                   controller: currentPinController,
                   disabled: isSubmitting,
@@ -182,7 +212,17 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                       textAlign: TextAlign.center,
                     ),
                   ),
-                const SizedBox(height: DesignTokens.space4),
+                const SizedBox(height: DesignTokens.space5),
+
+                // New PIN section
+                Text(
+                  'New PIN',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space2),
                 PinBoxes(
                   controller: newPinController,
                   disabled: isSubmitting,
@@ -204,12 +244,22 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                       textAlign: TextAlign.center,
                     ),
                   ),
-                const SizedBox(height: DesignTokens.space4),
+                const SizedBox(height: DesignTokens.space5),
+
+                // Verify New PIN section
+                Text(
+                  'Verify New PIN',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space2),
                 PinBoxes(
                   controller: confirmPinController,
                   disabled: isSubmitting,
                   errorText: confirmPinError,
-                  semanticLabel: 'Confirm New PIN',
+                  semanticLabel: 'Verify New PIN',
                   autofocus: false,
                   onSubmit: (value) {
                     // Submit on last field
@@ -306,6 +356,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Set up a 4-digit PIN for admin access',
@@ -313,7 +364,17 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: DesignTokens.space4),
+                const SizedBox(height: DesignTokens.space5),
+
+                // New PIN section
+                Text(
+                  'New PIN',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space2),
                 PinBoxes(
                   controller: newPinController,
                   disabled: isSubmitting,
@@ -335,12 +396,22 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                       textAlign: TextAlign.center,
                     ),
                   ),
-                const SizedBox(height: DesignTokens.space4),
+                const SizedBox(height: DesignTokens.space5),
+
+                // Verify PIN section
+                Text(
+                  'Verify PIN',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space2),
                 PinBoxes(
                   controller: confirmPinController,
                   disabled: isSubmitting,
                   errorText: confirmPinError,
-                  semanticLabel: 'Confirm PIN',
+                  semanticLabel: 'Verify PIN',
                   autofocus: false,
                   onSubmit: (value) {
                     // Submit on last field
@@ -519,7 +590,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      extendBody: true,
       body: SafeArea(
         top: true,
         child: authState is AuthAuthenticated
@@ -533,34 +603,12 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
                 ),
               ),
       ),
-      bottomNavigationBar: _buildGlassNavBar(),
-    );
-  }
-
-  Widget _buildGlassNavBar() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return GlassNavBar(
-      selectedIndex: _selectedIndex,
-      onDestinationSelected: _onTabSelected,
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          selectedIcon: Icon(Icons.dashboard_rounded),
-          label: 'Home',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.subject_outlined),
-          selectedIcon: Icon(Icons.subject_rounded),
-          label: 'Subjects',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.settings_outlined),
-          selectedIcon: Icon(Icons.settings_rounded),
-          label: 'Settings',
-        ),
-      ],
-      isDark: Theme.of(context).brightness == Brightness.dark,
-      accentColor: colorScheme.primary,
+      bottomNavigationBar: AppBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onTabSelected,
+        destinations: _destinations,
+        accentColor: colorScheme.primary,
+      ),
     );
   }
 
@@ -573,35 +621,21 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
       child: Column(
         children: [
           // Header with profile menu
-          _buildSettingsHeader(colorScheme, textTheme),
+          AppHeader(
+            title: 'Settings',
+            subtitle: 'Manage your preferences',
+            showProfileMenu: true,
+          ),
           // Settings content
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 DesignTokens.space6,
                 DesignTokens.space4,
                 DesignTokens.space6,
-                DesignTokens.space6 + 120,
+                DesignTokens.space6 + DesignTokens.bottomBarHeight,
               ),
               children: [
-                // Appearance section
-                _buildSectionHeader('Appearance', colorScheme),
-                SoftCard(
-                  isDark: Theme.of(context).brightness == Brightness.dark,
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: Icon(Icons.dark_mode_outlined, color: colorScheme.onSurfaceVariant),
-                        title: Text('Theme', style: textTheme.titleMedium),
-                        subtitle: Text('System default (Dark)', style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
-                        onTap: () {},
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: DesignTokens.space4),
-
                 // Security section
                 _buildSectionHeader('Security', colorScheme),
                 SoftCard(
@@ -727,196 +761,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> with Sing
           fontWeight: FontWeight.w600,
           color: colorScheme.primary,
         ),
-      ),
-    );
-  }
-
-  Widget _buildSettingsHeader(ColorScheme colorScheme, TextTheme textTheme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        DesignTokens.space6,
-        DesignTokens.space6,
-        DesignTokens.space6,
-        DesignTokens.space4,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Settings',
-                  style: textTheme.headlineLarge?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: DesignTokens.space1),
-                Text(
-                  'Manage your preferences',
-                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-          _buildProfileMenu(colorScheme, textTheme),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileMenu(ColorScheme colorScheme, TextTheme textTheme) {
-    final bgColor = colorScheme.surfaceContainerHighest;
-    final authState = ref.read(authProvider);
-    final session = authState is AuthAuthenticated ? authState.session : null;
-    final user = session?.student;
-
-    return PopupMenuButton<String>(
-      onSelected: (value) async {
-        switch (value) {
-          case 'profile':
-            if (mounted) context.push(AppRoutes.studentProfile);
-            break;
-          case 'change_avatar':
-            _showChangeAvatarDialog();
-            break;
-          case 'logout':
-            _showLogoutConfirmation();
-            break;
-        }
-      },
-      itemBuilder: (context) => [
-        if (user != null) ...[
-          PopupMenuItem<String>(
-            enabled: false,
-            padding: const EdgeInsets.all(DesignTokens.space3),
-            child: Row(
-              children: [
-                AvatarCircle(
-                  name: user.fullName,
-                  size: 40,
-                  isDark: Theme.of(context).brightness == Brightness.dark,
-                ),
-                const SizedBox(width: DesignTokens.space3),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.fullName,
-                        style: textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      Text(
-                        session?.user.email ?? '',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const PopupMenuDivider(),
-        ],
-        PopupMenuItem<String>(
-          value: 'profile',
-          child: Row(
-            children: [
-              Icon(Icons.person_outline_rounded, size: 20, color: colorScheme.onSurface),
-              const SizedBox(width: DesignTokens.space2),
-              Text('My Profile', style: textTheme.labelLarge),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'change_avatar',
-          child: Row(
-            children: [
-              Icon(Icons.camera_alt_outlined, size: 20, color: colorScheme.onSurface),
-              const SizedBox(width: DesignTokens.space2),
-              Text('Change Picture', style: textTheme.labelLarge),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: 'logout',
-          child: Row(
-            children: [
-              Icon(Icons.logout_rounded, size: 20, color: colorScheme.error),
-              const SizedBox(width: DesignTokens.space2),
-              Text('Logout', style: textTheme.labelLarge?.copyWith(color: colorScheme.error)),
-            ],
-          ),
-        ),
-      ],
-      child: Container(
-        padding: const EdgeInsets.all(DesignTokens.space2),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-          border: Border.all(
-            color: colorScheme.outlineVariant,
-            width: 1,
-          ),
-        ),
-        child: AvatarCircle(
-          name: user?.fullName,
-          size: 36,
-          isDark: Theme.of(context).brightness == Brightness.dark,
-        ),
-      ),
-    );
-  }
-
-  void _showChangeAvatarDialog() {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    showDialog(
-      context: context,
-      useSafeArea: true,
-      builder: (context) => KeyboardSafeDialog(
-        isDark: Theme.of(context).brightness == Brightness.dark,
-        title: 'Change Profile Picture',
-        content: Text(
-          'This feature will be implemented soon. You can pick an image from gallery or camera.',
-          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: textTheme.labelLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Implement image picker
-            },
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-              ),
-            ),
-            child: Text(
-              'Pick Image',
-              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
       ),
     );
   }

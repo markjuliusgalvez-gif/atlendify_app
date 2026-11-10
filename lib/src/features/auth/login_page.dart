@@ -141,289 +141,283 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         top: true,
         bottom: true,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final availableHeight = constraints.maxHeight;
-            final logoTopSpace = (availableHeight * 0.08).clamp(24.0, 48.0);
-            final contentSpacing = (availableHeight * 0.04).clamp(16.0, 32.0);
-            final bottomSpace = (availableHeight * 0.06).clamp(24.0, 48.0);
-
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(height: logoTopSpace),
-
-                      // Logo - icon only, no text
-                      Center(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: (constraints.maxWidth - 48).clamp(200.0, 320.0),
-                            maxHeight: 90,
-                          ),
-                          child: Image.asset(
-                            'assets/images/logo_mark.png',
-                            fit: BoxFit.contain,
-                            semanticLabel: 'Atlendify Logo',
-                          ),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(
+              DesignTokens.space6,
+              DesignTokens.space6,
+              DesignTokens.space6,
+              DesignTokens.space6,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Logo - icon only, no text
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 280, maxHeight: 90),
+                        child: Image.asset(
+                          'assets/images/logo_mark.png',
+                          fit: BoxFit.contain,
+                          semanticLabel: 'Atlendify Logo',
                         ),
                       ),
-                      SizedBox(height: contentSpacing),
+                    ),
+                    const SizedBox(height: DesignTokens.space5),
 
-                      // Welcome text
-                      Text(
-                        'Welcome back',
-                        style: textTheme.headlineLarge?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        textAlign: TextAlign.center,
+                    // Welcome text
+                    Text(
+                      'Welcome back',
+                      style: textTheme.headlineLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
                       ),
-                      SizedBox(height: DesignTokens.space2),
-                      Text(
-                        'Sign in to continue to Atlendify',
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        textAlign: TextAlign.center,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: DesignTokens.space2),
+                    Text(
+                      'Sign in to continue to Atlendify',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                      SizedBox(height: contentSpacing),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: DesignTokens.space6),
 
-                      // Form card
-                      Card(
-                        elevation: 0,
-                        color: colorScheme.surfaceContainerHighest,
-                        surfaceTintColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(DesignTokens.radiusCard),
-                          side: BorderSide(
-                            color: colorScheme.outlineVariant,
-                            width: 1,
-                          ),
+                    // Form card
+                    Card(
+                      elevation: 0,
+                      color: colorScheme.surfaceContainerHighest,
+                      surfaceTintColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(DesignTokens.radiusCard),
+                        side: BorderSide(
+                          color: colorScheme.outlineVariant,
+                          width: 1,
                         ),
-                        margin: EdgeInsets.zero,
-                        child: Padding(
-                          padding: const EdgeInsets.all(DesignTokens.space6),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // Email field
-                                TextFormField(
-                                  controller: _emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                  textInputAction: TextInputAction.next,
-                                  decoration: InputDecoration(
-                                    labelText: 'Email',
-                                    hintText: 'you@example.com',
-                                    prefixIcon: Icon(
-                                      Icons.email_outlined,
+                      ),
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(DesignTokens.space6),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Email field
+                              TextFormField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                decoration: InputDecoration(
+                                  labelText: 'Email',
+                                  hintText: 'you@example.com',
+                                  prefixIcon: Icon(
+                                    Icons.email_outlined,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  filled: true,
+                                  fillColor: colorScheme.surface,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: DesignTokens.space5,
+                                    vertical: DesignTokens.space4,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+                                    borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+                                    borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+                                    borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+                                    borderSide: BorderSide(color: colorScheme.error, width: 1.5),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+                                    borderSide: BorderSide(color: colorScheme.error, width: 2),
+                                  ),
+                                  labelStyle: textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  hintStyle: textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                  ),
+                                  errorStyle: textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.error,
+                                  ),
+                                  floatingLabelStyle: textTheme.labelMedium?.copyWith(
+                                    color: colorScheme.primary,
+                                  ),
+                                  floatingLabelAlignment: FloatingLabelAlignment.start,
+                                ),
+                                validator: EmailValidator.validateEmail,
+                              ),
+                              const SizedBox(height: DesignTokens.space4),
+
+                              // Password field
+                              TextFormField(
+                                controller: _passwordController,
+                                obscureText: _obscurePassword,
+                                textInputAction: TextInputAction.done,
+                                decoration: InputDecoration(
+                                  labelText: 'Password',
+                                  hintText: 'Enter your password',
+                                  prefixIcon: Icon(
+                                    Icons.lock_outline,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
                                       color: colorScheme.onSurfaceVariant,
                                     ),
-                                    filled: true,
-                                    fillColor: colorScheme.surface,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: DesignTokens.space5,
-                                      vertical: DesignTokens.space4,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                                      borderSide: BorderSide(color: colorScheme.outline, width: 1),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                                      borderSide: BorderSide(color: colorScheme.outline, width: 1),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                                      borderSide: BorderSide(color: colorScheme.primary, width: 2),
-                                    ),
-                                    errorBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                                      borderSide: BorderSide(color: colorScheme.error, width: 1.5),
-                                    ),
-                                    focusedErrorBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                                      borderSide: BorderSide(color: colorScheme.error, width: 2),
-                                    ),
-                                    labelStyle: textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                    hintStyle: textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                                    ),
-                                    errorStyle: textTheme.labelSmall?.copyWith(
+                                    onPressed: () {
+                                      setState(() => _obscurePassword = !_obscurePassword);
+                                    },
+                                  ),
+                                  filled: true,
+                                  fillColor: colorScheme.surface,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: DesignTokens.space5,
+                                    vertical: DesignTokens.space4,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+                                    borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+                                    borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+                                    borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+                                    borderSide: BorderSide(color: colorScheme.error, width: 1.5),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
+                                    borderSide: BorderSide(color: colorScheme.error, width: 2),
+                                  ),
+                                  labelStyle: textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  hintStyle: textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                  ),
+                                  errorStyle: textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.error,
+                                  ),
+                                  floatingLabelStyle: textTheme.labelMedium?.copyWith(
+                                    color: colorScheme.primary,
+                                  ),
+                                  floatingLabelAlignment: FloatingLabelAlignment.start,
+                                ),
+                                validator: PasswordValidator.validatePassword,
+                                onFieldSubmitted: (_) => _handleLogin(),
+                              ),
+                              const SizedBox(height: DesignTokens.space2),
+
+                              // Error message
+                              if (_errorMessage != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: DesignTokens.space2),
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: textTheme.bodySmall?.copyWith(
                                       color: colorScheme.error,
                                     ),
-                                    floatingLabelStyle: textTheme.labelMedium?.copyWith(
-                                      color: colorScheme.primary,
-                                    ),
-                                    floatingLabelAlignment: FloatingLabelAlignment.start,
+                                    textAlign: TextAlign.center,
                                   ),
-                                  validator: EmailValidator.validateEmail,
                                 ),
-                                const SizedBox(height: DesignTokens.space4),
 
-                                // Password field
-                                TextFormField(
-                                  controller: _passwordController,
-                                  obscureText: _obscurePassword,
-                                  textInputAction: TextInputAction.done,
-                                  decoration: InputDecoration(
-                                    labelText: 'Password',
-                                    hintText: 'Enter your password',
-                                    prefixIcon: Icon(
-                                      Icons.lock_outline,
+                              const SizedBox(height: DesignTokens.space3),
+
+                              // Login button (Student) - Rectangular with subtle radius
+                              _RectangularButton(
+                                label: _isLoading ? 'Signing in...' : 'Sign In as Student',
+                                icon: _isLoading ? null : Icons.login_rounded,
+                                onPressed: _isLoading ? null : _handleLogin,
+                                isLoading: _isLoading,
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                              ),
+                              const SizedBox(height: DesignTokens.space3),
+
+                              // Login as Admin button - Rectangular outlined
+                              _RectangularButton(
+                                label: 'Login as Admin',
+                                icon: Icons.admin_panel_settings_outlined,
+                                onPressed: _isLoading ? null : _handleAdminLogin,
+                                outlined: true,
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.primary,
+                              ),
+                              const SizedBox(height: DesignTokens.space6),
+
+                              // Register link
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: DesignTokens.space2,
+                                runSpacing: DesignTokens.space1,
+                                children: [
+                                  Text(
+                                    "Don't have an account? ",
+                                    style: textTheme.bodyMedium?.copyWith(
                                       color: colorScheme.onSurfaceVariant,
                                     ),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _obscurePassword
-                                            ? Icons.visibility_off_outlined
-                                            : Icons.visibility_outlined,
-                                        color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  TextButton(
+                                    onPressed: () => context.go(AppRoutes.register),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: DesignTokens.space2,
+                                        vertical: DesignTokens.space1,
                                       ),
-                                      onPressed: () {
-                                        setState(() => _obscurePassword = !_obscurePassword);
-                                      },
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      minimumSize: const Size(0, 0),
                                     ),
-                                    filled: true,
-                                    fillColor: colorScheme.surface,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: DesignTokens.space5,
-                                      vertical: DesignTokens.space4,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                                      borderSide: BorderSide(color: colorScheme.outline, width: 1),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                                      borderSide: BorderSide(color: colorScheme.outline, width: 1),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                                      borderSide: BorderSide(color: colorScheme.primary, width: 2),
-                                    ),
-                                    errorBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                                      borderSide: BorderSide(color: colorScheme.error, width: 1.5),
-                                    ),
-                                    focusedErrorBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(DesignTokens.radiusInput),
-                                      borderSide: BorderSide(color: colorScheme.error, width: 2),
-                                    ),
-                                    labelStyle: textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                    hintStyle: textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                                    ),
-                                    errorStyle: textTheme.labelSmall?.copyWith(
-                                      color: colorScheme.error,
-                                    ),
-                                    floatingLabelStyle: textTheme.labelMedium?.copyWith(
-                                      color: colorScheme.primary,
-                                    ),
-                                    floatingLabelAlignment: FloatingLabelAlignment.start,
-                                  ),
-                                  validator: PasswordValidator.validatePassword,
-                                  onFieldSubmitted: (_) => _handleLogin(),
-                                ),
-                                const SizedBox(height: DesignTokens.space2),
-
-                                // Error message
-                                if (_errorMessage != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: DesignTokens.space2),
                                     child: Text(
-                                      _errorMessage!,
-                                      style: textTheme.bodySmall?.copyWith(
-                                        color: colorScheme.error,
+                                      'Create account',
+                                      style: textTheme.labelLarge?.copyWith(
+                                        color: colorScheme.primary,
+                                        fontWeight: FontWeight.w600,
                                       ),
-                                      textAlign: TextAlign.center,
                                     ),
                                   ),
-
-                                const SizedBox(height: DesignTokens.space3),
-
-                                // Login button (Student) - Rectangular with subtle radius
-                                _RectangularButton(
-                                  label: _isLoading ? 'Signing in...' : 'Sign In as Student',
-                                  icon: _isLoading ? null : Icons.login_rounded,
-                                  onPressed: _isLoading ? null : _handleLogin,
-                                  isLoading: _isLoading,
-                                  backgroundColor: colorScheme.primary,
-                                  foregroundColor: colorScheme.onPrimary,
-                                ),
-                                const SizedBox(height: DesignTokens.space3),
-
-                                // Login as Admin button - Rectangular outlined
-                                _RectangularButton(
-                                  label: 'Login as Admin',
-                                  icon: Icons.admin_panel_settings_outlined,
-                                  onPressed: _isLoading ? null : _handleAdminLogin,
-                                  outlined: true,
-                                  backgroundColor: colorScheme.primary,
-                                  foregroundColor: colorScheme.primary,
-                                ),
-                                const SizedBox(height: DesignTokens.space6),
-
-                                // Register link
-                                Wrap(
-                                  alignment: WrapAlignment.center,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  spacing: DesignTokens.space2,
-                                  runSpacing: DesignTokens.space1,
-                                  children: [
-                                    Text(
-                                      "Don't have an account? ",
-                                      style: textTheme.bodyMedium?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => context.go(AppRoutes.register),
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: DesignTokens.space2,
-                                          vertical: DesignTokens.space1,
-                                        ),
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        minimumSize: const Size(0, 0),
-                                      ),
-                                      child: Text(
-                                        'Create account',
-                                        style: textTheme.labelLarge?.copyWith(
-                                          color: colorScheme.primary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: bottomSpace),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/widgets/app_bottom_nav_bar.dart';
+import '../../core/widgets/app_header.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
@@ -18,6 +20,74 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
   int _selectedIndex = 0;
   late AnimationController _entranceController;
   late Animation<double> _fadeAnimation;
+
+  static const List<NavigationDestination> _destinations = [
+    NavigationDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home_rounded),
+      label: 'Home',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.subject_outlined),
+      selectedIcon: Icon(Icons.subject_rounded),
+      label: 'Subjects',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.settings_outlined),
+      selectedIcon: Icon(Icons.settings_rounded),
+      label: 'Settings',
+    ),
+  ];
+
+  Future<void> _handleStartScan(BuildContext context) async {
+    final sessionRepo = SessionRepository();
+    final openSessions = await sessionRepo.getOpenSessions();
+
+    if (!mounted) return;
+
+    if (openSessions.isEmpty) {
+      // No active sessions - show subject picker bottom sheet or navigate to Subjects
+      _showSubjectPickerForScan(context);
+    } else if (openSessions.length == 1) {
+      // Single active session - navigate directly to that subject's dashboard scanner
+      final session = openSessions.first;
+      context.push(AppRoutes.adminSubjectDashboard.replaceAll(':subjectId', session.subjectId.toString()));
+    } else {
+      // Multiple active sessions - show session picker
+      _showSessionPickerForScan(context, openSessions);
+    }
+  }
+
+  void _showSubjectPickerForScan(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _SubjectPickerBottomSheet(
+        onSubjectSelected: (subjectId) {
+          Navigator.pop(context);
+          context.push(AppRoutes.adminSubjectDashboard.replaceAll(':subjectId', subjectId.toString()));
+        },
+      ),
+    );
+  }
+
+  void _showSessionPickerForScan(BuildContext context, List<Session> sessions) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _SessionPickerBottomSheet(
+        sessions: sessions,
+        onSessionSelected: (session) {
+          Navigator.pop(context);
+          context.push(AppRoutes.adminSubjectDashboard.replaceAll(':subjectId', session.subjectId.toString()));
+        },
+      ),
+    );
+  }
 
   void _onTabSelected(int index) {
     setState(() => _selectedIndex = index);
@@ -60,7 +130,6 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      extendBody: true,
       body: SafeArea(
         top: true,
         child: authState is AuthAuthenticated
@@ -74,34 +143,12 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                 ),
               ),
       ),
-      bottomNavigationBar: _buildGlassNavBar(),
-    );
-  }
-
-  Widget _buildGlassNavBar() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return GlassNavBar(
-      selectedIndex: _selectedIndex,
-      onDestinationSelected: _onTabSelected,
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          selectedIcon: Icon(Icons.dashboard_rounded),
-          label: 'Home',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.subject_outlined),
-          selectedIcon: Icon(Icons.subject_rounded),
-          label: 'Subjects',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.settings_outlined),
-          selectedIcon: Icon(Icons.settings_rounded),
-          label: 'Settings',
-        ),
-      ],
-      isDark: Theme.of(context).brightness == Brightness.dark,
-      accentColor: colorScheme.primary,
+      bottomNavigationBar: AppBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onTabSelected,
+        destinations: _destinations,
+        accentColor: colorScheme.primary,
+      ),
     );
   }
 
@@ -171,6 +218,26 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
 
         final stats = snapshot.data ?? {};
 
+        // Compute greeting and name
+        final authState = ref.read(authProvider);
+        String greeting = 'Welcome back';
+        String name = 'Admin';
+
+        if (authState is AuthAuthenticated) {
+          final student = authState.session.student;
+          if (student != null && student.fullName.isNotEmpty) {
+            name = student.fullName;
+          }
+          final hour = DateTime.now().hour;
+          if (hour < 12) {
+            greeting = 'Good morning';
+          } else if (hour < 17) {
+            greeting = 'Good afternoon';
+          } else {
+            greeting = 'Good evening';
+          }
+        }
+
         return RefreshIndicator(
           onRefresh: () async => setState(() {}),
           color: colorScheme.primary,
@@ -178,18 +245,25 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
             opacity: _fadeAnimation,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 DesignTokens.space6,
                 DesignTokens.space6,
                 DesignTokens.space6,
-                DesignTokens.space6 + 120,
+                // Nav bar height + safe-area bottom + 16
+                DesignTokens.bottomBarHeight + MediaQuery.of(context).padding.bottom + 16,
               ),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildHeader(colorScheme, textTheme),
+                    AppHeader(
+                      title: '$greeting, $name',
+                      subtitle: 'Here\'s what\'s happening today',
+                      showProfileMenu: true,
+                    ),
                     const SizedBox(height: DesignTokens.space6),
 
+                    // 24px above, 12px below section title
+                    const SizedBox(height: 24),
                     Text(
                       'Overview',
                       style: textTheme.headlineSmall?.copyWith(
@@ -197,10 +271,12 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: DesignTokens.space4),
+                    const SizedBox(height: 12),
                     _buildStatsGrid(stats, context),
                     const SizedBox(height: DesignTokens.space6),
 
+                    // 24px above, 12px below section title
+                    const SizedBox(height: 24),
                     Text(
                       'Quick Actions',
                       style: textTheme.headlineSmall?.copyWith(
@@ -208,18 +284,21 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: DesignTokens.space4),
+                    const SizedBox(height: 12),
                     _buildQuickActions(context),
                     const SizedBox(height: DesignTokens.space6),
 
+                    // 24px above, 12px below section title
+                    const SizedBox(height: 24),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Recent Sessions',
-                          style: textTheme.headlineSmall?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w700,
+                        Expanded(
+                          child: Text(
+                            'Recent Sessions',
+                            style: textTheme.headlineSmall?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         TextButton(
@@ -234,7 +313,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
                         ),
                       ],
                     ),
-                    const SizedBox(height: DesignTokens.space4),
+                    const SizedBox(height: 12),
                     _buildRecentSessions(context),
                   ],
                 ),
@@ -245,256 +324,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
     );
   }
 
-  Widget _buildHeader(ColorScheme colorScheme, TextTheme textTheme) {
-    final authState = ref.read(authProvider);
-    String greeting = 'Welcome back';
-    String name = 'Admin';
-
-    if (authState is AuthAuthenticated) {
-      final student = authState.session.student;
-      if (student != null && student.fullName.isNotEmpty) {
-        name = student.fullName;
-      }
-      final hour = DateTime.now().hour;
-      if (hour < 12) {
-        greeting = 'Good morning';
-      } else if (hour < 17) {
-        greeting = 'Good afternoon';
-      } else {
-        greeting = 'Good evening';
-      }
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: DesignTokens.space4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$greeting, $name',
-                  style: textTheme.headlineMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: DesignTokens.space1),
-                Text(
-                  'Here\'s what\'s happening today',
-                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-          _buildProfileMenu(colorScheme, textTheme),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileMenu(ColorScheme colorScheme, TextTheme textTheme) {
-    final bgColor = colorScheme.surfaceContainerHighest;
-    final authState = ref.read(authProvider);
-    final session = authState is AuthAuthenticated ? authState.session : null;
-    final user = session?.student;
-
-    return PopupMenuButton<String>(
-      onSelected: (value) async {
-        switch (value) {
-          case 'profile':
-            if (mounted) context.push(AppRoutes.studentProfile);
-            break;
-          case 'change_avatar':
-            _showChangeAvatarDialog();
-            break;
-          case 'logout':
-            _showLogoutDialog();
-            break;
-        }
-      },
-      itemBuilder: (context) => [
-        if (user != null) ...[
-          PopupMenuItem<String>(
-            enabled: false,
-            padding: const EdgeInsets.all(DesignTokens.space3),
-            child: Row(
-              children: [
-                AvatarCircle(
-                  name: user.fullName,
-                  size: 40,
-                  isDark: Theme.of(context).brightness == Brightness.dark,
-                ),
-                const SizedBox(width: DesignTokens.space3),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.fullName,
-                        style: textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      Text(
-                        session?.user.email ?? '',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const PopupMenuDivider(),
-        ],
-        PopupMenuItem<String>(
-          value: 'profile',
-          child: Row(
-            children: [
-              Icon(Icons.person_outline_rounded, size: 20, color: colorScheme.onSurface),
-              const SizedBox(width: DesignTokens.space2),
-              Text('My Profile', style: textTheme.labelLarge),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'change_avatar',
-          child: Row(
-            children: [
-              Icon(Icons.camera_alt_outlined, size: 20, color: colorScheme.onSurface),
-              const SizedBox(width: DesignTokens.space2),
-              Text('Change Picture', style: textTheme.labelLarge),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: 'logout',
-          child: Row(
-            children: [
-              Icon(Icons.logout_rounded, size: 20, color: colorScheme.error),
-              const SizedBox(width: DesignTokens.space2),
-              Text('Logout', style: textTheme.labelLarge?.copyWith(color: colorScheme.error)),
-            ],
-          ),
-        ),
-      ],
-      child: Container(
-        padding: const EdgeInsets.all(DesignTokens.space2),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-          border: Border.all(
-            color: colorScheme.outlineVariant,
-            width: 1,
-          ),
-        ),
-        child: AvatarCircle(
-          name: user?.fullName,
-          size: 36,
-          isDark: Theme.of(context).brightness == Brightness.dark,
-        ),
-      ),
-    );
-  }
-
-  void _showChangeAvatarDialog() {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    showDialog(
-      context: context,
-      useSafeArea: true,
-      builder: (context) => KeyboardSafeDialog(
-        isDark: Theme.of(context).brightness == Brightness.dark,
-        title: 'Change Profile Picture',
-        content: Text(
-          'This feature will be implemented soon. You can pick an image from gallery or camera.',
-          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: textTheme.labelLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Implement image picker
-            },
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-              ),
-            ),
-            child: Text(
-              'Pick Image',
-              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLogoutDialog() {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    showDialog(
-      context: context,
-      useSafeArea: true,
-      builder: (context) => KeyboardSafeDialog(
-        isDark: Theme.of(context).brightness == Brightness.dark,
-        title: 'Logout',
-        content: Text(
-          'Are you sure you want to logout?',
-          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: textTheme.labelLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(authProvider.notifier).logout();
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: colorScheme.error,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-              ),
-            ),
-            child: Text(
-              'Logout',
-              style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  
   Widget _buildStatsGrid(Map<String, dynamic> stats, BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final items = [
@@ -504,18 +334,33 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
       _StatItem('Today\'s Sessions', stats['todaySessions'].toString(), Icons.today_rounded, Color(0xFFF5A623)),
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: DesignTokens.space4,
-        mainAxisSpacing: DesignTokens.space4,
-        childAspectRatio: 1.0,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        return _buildStatCard(items[index], colorScheme, index);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const double spacing = 12.0; // 12 px gaps as specified
+
+        // Use two Rows of Expanded cards wrapped in IntrinsicHeight, 12 px gaps
+        return IntrinsicHeight(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: _buildStatCard(items[0], colorScheme, 0)),
+                  SizedBox(width: spacing),
+                  Expanded(child: _buildStatCard(items[1], colorScheme, 1)),
+                ],
+              ),
+              SizedBox(height: spacing),
+              Row(
+                children: [
+                  Expanded(child: _buildStatCard(items[2], colorScheme, 2)),
+                  SizedBox(width: spacing),
+                  Expanded(child: _buildStatCard(items[3], colorScheme, 3)),
+                ],
+              ),
+            ],
+          ),
+        );
       },
     );
   }
@@ -596,7 +441,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
         'Start Scan',
         Icons.qr_code_scanner_rounded,
         Color(0xFF1B8A3A),
-        () => context.push(AppRoutes.adminScan),
+        () => _handleStartScan(context),
       ),
       _QuickAction(
         'View Records',
@@ -612,19 +457,28 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
       ),
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: DesignTokens.space4,
-        mainAxisSpacing: DesignTokens.space4,
-        childAspectRatio: 1.0,
+    // Same Row + Expanded + IntrinsicHeight structure, 16 px padding, minHeight ~104
+    return IntrinsicHeight(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: _buildActionCard(actions[0], colorScheme, 0)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildActionCard(actions[1], colorScheme, 1)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _buildActionCard(actions[2], colorScheme, 2)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildActionCard(actions[3], colorScheme, 3)),
+            ],
+          ),
+        ],
       ),
-      itemCount: actions.length,
-      itemBuilder: (context, index) {
-        return _buildActionCard(actions[index], colorScheme, index);
-      },
     );
   }
 
@@ -642,37 +496,44 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> with SingleTicker
           ),
         );
       },
-      child: SoftTile(
-        isDark: Theme.of(context).brightness == Brightness.dark,
-        onTap: action.onTap,
-        padding: const EdgeInsets.all(DesignTokens.space4),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(DesignTokens.space3),
-              decoration: BoxDecoration(
-                color: action.color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: 104,
+        ),
+        child: SoftTile(
+          isDark: Theme.of(context).brightness == Brightness.dark,
+          onTap: action.onTap,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(DesignTokens.space3),
+                decoration: BoxDecoration(
+                  color: action.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                ),
+                child: Icon(
+                  action.icon,
+                  color: action.color,
+                  size: 28,
+                ),
               ),
-              child: Icon(
-                action.icon,
-                color: action.color,
-                size: 28,
+              const SizedBox(height: 8),
+              Text(
+                action.label,
+                style: DesignTokens.labelLarge.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: DesignTokens.space2),
-            Text(
-              action.label,
-              style: DesignTokens.labelLarge.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -898,4 +759,241 @@ class _QuickAction {
   final VoidCallback onTap;
 
   _QuickAction(this.label, this.icon, this.color, this.onTap);
+}
+
+/// Bottom sheet for selecting a subject when no active sessions exist
+class _SubjectPickerBottomSheet extends ConsumerWidget {
+  final void Function(int subjectId) onSubjectSelected;
+
+  const _SubjectPickerBottomSheet({required this.onSubjectSelected});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return FutureBuilder<List<Subject>>(
+      future: SubjectRepository().getAll(),
+      builder: (context, snapshot) {
+        return Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusSheet)),
+          ),
+          padding: EdgeInsets.only(
+            top: DesignTokens.space4,
+            left: DesignTokens.space6,
+            right: DesignTokens.space6,
+            bottom: DesignTokens.space6 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: DesignTokens.space4),
+              Text(
+                'Select Subject to Start Session',
+                style: textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: DesignTokens.space2),
+              Text(
+                'No active sessions found. Choose a subject to start a new session and begin scanning.',
+                style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: DesignTokens.space4),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(DesignTokens.space6),
+                    child: CircularProgressIndicator(color: colorScheme.primary),
+                  ),
+                )
+              else if (snapshot.hasError || snapshot.data == null || snapshot.data!.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(DesignTokens.space6),
+                  child: Column(
+                    children: [
+                      Icon(Icons.subject_outlined, size: 48, color: colorScheme.onSurfaceVariant),
+                      const SizedBox(height: DesignTokens.space3),
+                      Text(
+                        'No subjects available',
+                        style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurface),
+                      ),
+                      const SizedBox(height: DesignTokens.space2),
+                      Text(
+                        'Create a subject first from the Subjects tab',
+                        style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.5,
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: snapshot.data!.length,
+                    separatorBuilder: (context, index) => Divider(
+                      height: 1,
+                      color: colorScheme.outlineVariant,
+                    ),
+                    itemBuilder: (context, index) {
+                      final subject = snapshot.data![index];
+                      return ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(DesignTokens.space2),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                          ),
+                          child: Icon(Icons.subject_rounded, color: colorScheme.primary, size: 24),
+                        ),
+                        title: Text(
+                          subject.name,
+                          style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+                        ),
+                        subtitle: Text(
+                          '${subject.code} - Section ${subject.section}',
+                          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                        onTap: () => onSubjectSelected(subject.id!),
+                        trailing: Icon(Icons.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
+                      );
+                    },
+                  ),
+                ),
+              const SizedBox(height: DesignTokens.space4),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton)),
+                  ),
+                  child: Text('Cancel', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Bottom sheet for selecting a session when multiple active sessions exist
+class _SessionPickerBottomSheet extends ConsumerWidget {
+  final List<Session> sessions;
+  final void Function(Session session) onSessionSelected;
+
+  const _SessionPickerBottomSheet({required this.sessions, required this.onSessionSelected});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusSheet)),
+      ),
+      padding: EdgeInsets.only(
+        top: DesignTokens.space4,
+        left: DesignTokens.space6,
+        right: DesignTokens.space6,
+        bottom: DesignTokens.space6 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: colorScheme.outlineVariant,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: DesignTokens.space4),
+          Text(
+            'Select Active Session',
+            style: textTheme.headlineSmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: DesignTokens.space2),
+          Text(
+            '${sessions.length} active sessions found. Choose one to start scanning.',
+            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: DesignTokens.space4),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.5,
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: sessions.length,
+              separatorBuilder: (context, index) => Divider(
+                height: 1,
+                color: colorScheme.outlineVariant,
+              ),
+              itemBuilder: (context, index) {
+                final session = sessions[index];
+                return ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(DesignTokens.space2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1B8A3A).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
+                    ),
+                    child: const Icon(Icons.event_available_rounded, color: Color(0xFF1B8A3A), size: 24),
+                  ),
+                  title: Text(
+                    'Subject ${session.subjectId}',
+                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+                  ),
+                  subtitle: Text(
+                    '${session.date} • ${session.startTime} - ${session.endTime}',
+                    style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                  onTap: () => onSessionSelected(session),
+                  trailing: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF1B8A3A), size: 24),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: DesignTokens.space4),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton)),
+              ),
+              child: Text('Cancel', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -5,7 +5,8 @@ import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/brand_colors.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../core/theme/theme_provider.dart';
+import '../../core/widgets/app_bottom_nav_bar.dart';
+import '../../core/widgets/app_header.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
@@ -25,6 +26,24 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with Single
   late AnimationController _entranceController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  static const List<NavigationDestination> _destinations = [
+    NavigationDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home_rounded),
+      label: 'Home',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.subject_outlined),
+      selectedIcon: Icon(Icons.subject_rounded),
+      label: 'Subjects',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.assessment_outlined),
+      selectedIcon: Icon(Icons.assessment_rounded),
+      label: 'Records',
+    ),
+  ];
 
   void _onTabSelected(int index) {
     setState(() => _selectedIndex = index);
@@ -74,7 +93,6 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with Single
 
     return Scaffold(
       backgroundColor: bgColor,
-      extendBody: true,
       body: authState is AuthAuthenticated
           ? _buildRecordsContentWithHeader(textPrimary, textSecondary, isDark)
           : Center(
@@ -93,7 +111,12 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with Single
         child: const Icon(Icons.filter_list_rounded),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: _buildGlassNavBar(isDark),
+      bottomNavigationBar: AppBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onTabSelected,
+        destinations: _destinations,
+        accentColor: BrandColors.primary,
+      ),
     );
   }
 
@@ -105,8 +128,13 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with Single
 
         return Column(
           children: [
-            // Header with profile menu
-            _buildRecordsHeader(textPrimary, textSecondary, isDark),
+            // Header with profile menu using AppHeader
+            AppHeader(
+              title: 'Attendance Records',
+              subtitle: 'Filter and view student attendance',
+              showProfileMenu: true,
+              backgroundColor: isDark ? BrandColors.darkBackground : BrandColors.lightBackground,
+            ),
             // Filter chips bar
             _buildFilterBar(subjects, textPrimary, textSecondary, isDark),
             // Records list
@@ -154,11 +182,11 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with Single
                       child: SlideTransition(
                         position: _slideAnimation,
                         child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(
+                          padding: EdgeInsets.fromLTRB(
                             DesignTokens.space6,
                             DesignTokens.space4,
                             DesignTokens.space6,
-                            DesignTokens.space6 + 120,
+                            DesignTokens.space6 + DesignTokens.bottomBarHeight,
                           ),
                           itemCount: records.length,
                           separatorBuilder: (context, index) => const SizedBox(height: DesignTokens.space3),
@@ -176,309 +204,6 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with Single
           ],
         );
       },
-    );
-  }
-
-  Widget _buildRecordsHeader(Color textPrimary, Color textSecondary, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        DesignTokens.space5,
-        DesignTokens.space5,
-        DesignTokens.space5,
-        DesignTokens.space3,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Attendance Records',
-                  style: DesignTokens.headlineMedium.copyWith(
-                    color: textPrimary,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: DesignTokens.space1),
-                Text(
-                  'Filter and view student attendance',
-                  style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
-                ),
-              ],
-            ),
-          ),
-          const ThemeToggleButton(),
-          const SizedBox(width: DesignTokens.space2),
-          _buildProfileMenu(textPrimary, textSecondary, isDark: isDark),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileMenu(Color textPrimary, Color textSecondary, {required bool isDark}) {
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final authState = ref.read(authProvider);
-    final session = authState is AuthAuthenticated ? authState.session : null;
-    final user = session?.student;
-
-    return PopupMenuButton<String>(
-      onSelected: (value) async {
-        switch (value) {
-          case 'profile':
-            if (mounted) context.push(AppRoutes.studentProfile);
-            break;
-          case 'change_avatar':
-            _showChangeAvatarDialog();
-            break;
-          case 'logout':
-            _showLogoutDialog();
-            break;
-        }
-      },
-      itemBuilder: (context) => [
-        if (user != null) ...[
-          PopupMenuItem<String>(
-            enabled: false,
-            padding: const EdgeInsets.all(DesignTokens.space3),
-            child: Row(
-              children: [
-                AvatarCircle(
-                  name: user.fullName,
-                  size: 40,
-                  isDark: isDark,
-                ),
-                const SizedBox(width: DesignTokens.space3),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.fullName,
-                        style: DesignTokens.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary,
-                        ),
-                      ),
-                      Text(
-                        session?.user.email ?? '',
-                        style: DesignTokens.bodySmall.copyWith(
-                          color: isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const PopupMenuDivider(),
-        ],
-        PopupMenuItem<String>(
-          value: 'profile',
-          child: Row(
-            children: [
-              Icon(Icons.person_outline_rounded, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
-              const SizedBox(width: DesignTokens.space2),
-              Text('My Profile', style: DesignTokens.labelLarge),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'change_avatar',
-          child: Row(
-            children: [
-              Icon(Icons.camera_alt_outlined, size: 20, color: isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary),
-              const SizedBox(width: DesignTokens.space2),
-              Text('Change Picture', style: DesignTokens.labelLarge),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: 'logout',
-          child: Row(
-            children: [
-              Icon(Icons.logout_rounded, size: 20, color: BrandColors.absentRed),
-              const SizedBox(width: DesignTokens.space2),
-              Text('Logout', style: DesignTokens.labelLarge.copyWith(color: BrandColors.absentRed)),
-            ],
-          ),
-        ),
-      ],
-      child: Container(
-        padding: const EdgeInsets.all(DesignTokens.space2),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-          border: Border.all(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: 1,
-          ),
-        ),
-        child: AvatarCircle(
-          name: user?.fullName,
-          size: 36,
-          isDark: isDark,
-        ),
-      ),
-    );
-  }
-
-  void _showChangeAvatarDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: bgColor,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: 1,
-          ),
-        ),
-        title: Text(
-          'Change Profile Picture',
-          style: DesignTokens.headlineSmall.copyWith(
-            color: textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Text(
-          'This feature will be implemented soon. You can pick an image from gallery or camera.',
-          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: DesignTokens.labelLarge.copyWith(
-                color: textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Implement image picker
-            },
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-              ),
-            ),
-            child: Text(
-              'Pick Image',
-              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-        actionsPadding: const EdgeInsets.symmetric(
-          horizontal: DesignTokens.space4,
-          vertical: DesignTokens.space3,
-        ),
-      ),
-    );
-  }
-
-  void _showLogoutDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? BrandColors.darkSurface : BrandColors.lightSurface;
-    final textPrimary = isDark ? BrandColors.darkTextPrimary : BrandColors.lightTextPrimary;
-    final textSecondary = isDark ? BrandColors.darkTextSecondary : BrandColors.lightTextSecondary;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: bgColor,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusDialog),
-          side: BorderSide(
-            color: isDark ? BrandColors.darkOutline : BrandColors.lightOutline,
-            width: 1,
-          ),
-        ),
-        title: Text(
-          'Logout',
-          style: DesignTokens.headlineSmall.copyWith(
-            color: textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Text(
-          'Are you sure you want to logout?',
-          style: DesignTokens.bodyMedium.copyWith(color: textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: DesignTokens.labelLarge.copyWith(
-                color: textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(authProvider.notifier).logout();
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: BrandColors.absentRed,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusButton),
-              ),
-            ),
-            child: Text(
-              'Logout',
-              style: DesignTokens.labelLarge.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-        actionsPadding: const EdgeInsets.symmetric(
-          horizontal: DesignTokens.space4,
-          vertical: DesignTokens.space3,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGlassNavBar(bool isDark) {
-    return GlassNavBar(
-      selectedIndex: _selectedIndex,
-      onDestinationSelected: _onTabSelected,
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          selectedIcon: Icon(Icons.dashboard_rounded),
-          label: 'Home',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.subject_outlined),
-          selectedIcon: Icon(Icons.subject_rounded),
-          label: 'Subjects',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.settings_outlined),
-          selectedIcon: Icon(Icons.settings_rounded),
-          label: 'Settings',
-        ),
-      ],
-      isDark: isDark,
-      accentColor: BrandColors.primary,
     );
   }
 
@@ -503,35 +228,42 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with Single
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Subject filter - styled as small button
-            _buildFilterButton(
-              label: _selectedSubjectId != null
-                  ? subjects.firstWhere((s) => s.id.toString() == _selectedSubjectId).name
-                  : 'All Subjects',
-              onTap: () => _showSubjectFilter(subjects),
-              icon: Icons.subject_outlined,
-              isDark: isDark,
-              isActive: _selectedSubjectId != null,
+            Flexible(
+              child: _buildFilterButton(
+                label: _selectedSubjectId != null
+                    ? subjects.firstWhere((s) => s.id.toString() == _selectedSubjectId).name
+                    : 'All Subjects',
+                onTap: () => _showSubjectFilter(subjects),
+                icon: Icons.subject_outlined,
+                isDark: isDark,
+                isActive: _selectedSubjectId != null,
+              ),
             ),
             const SizedBox(width: DesignTokens.space2),
             // Date filter
-            _buildFilterButton(
-              label: _selectedDate != null ? _formatDateDisplay(_selectedDate!) : 'All Dates',
-              onTap: _showDateFilter,
-              icon: Icons.calendar_today_outlined,
-              isDark: isDark,
-              isActive: _selectedDate != null,
+            Flexible(
+              child: _buildFilterButton(
+                label: _selectedDate != null ? _formatDateDisplay(_selectedDate!) : 'All Dates',
+                onTap: _showDateFilter,
+                icon: Icons.calendar_today_outlined,
+                isDark: isDark,
+                isActive: _selectedDate != null,
+              ),
             ),
             const SizedBox(width: DesignTokens.space2),
             // Status filter
-            _buildFilterButton(
-              label: _selectedStatus != null ? _selectedStatus!.toUpperCase() : 'All Status',
-              onTap: _showStatusFilter,
-              icon: Icons.flag_outlined,
-              color: _getStatusColor(_selectedStatus),
-              isDark: isDark,
-              isActive: _selectedStatus != null,
+            Flexible(
+              child: _buildFilterButton(
+                label: _selectedStatus != null ? _selectedStatus!.toUpperCase() : 'All Status',
+                onTap: _showStatusFilter,
+                icon: Icons.flag_outlined,
+                color: _getStatusColor(_selectedStatus),
+                isDark: isDark,
+                isActive: _selectedStatus != null,
+              ),
             ),
             const SizedBox(width: DesignTokens.space2),
             // Search
@@ -547,12 +279,14 @@ class _AdminRecordsPageState extends ConsumerState<AdminRecordsPage> with Single
             ),
             if (_hasActiveFilters()) ...[
               const SizedBox(width: DesignTokens.space2),
-              _buildFilterButton(
-                label: 'Clear All',
-                onTap: _clearFilters,
-                icon: Icons.clear_all_rounded,
-                isDark: isDark,
-                isDestructive: true,
+              Flexible(
+                child: _buildFilterButton(
+                  label: 'Clear All',
+                  onTap: _clearFilters,
+                  icon: Icons.clear_all_rounded,
+                  isDark: isDark,
+                  isDestructive: true,
+                ),
               ),
             ],
           ],

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/widgets/app_bottom_nav_bar.dart';
+import '../../core/widgets/app_header.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
@@ -18,6 +20,24 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
   int _selectedIndex = 1;
   late AnimationController _entranceController;
   late Animation<double> _fadeAnimation;
+
+  static const List<NavigationDestination> _destinations = [
+    NavigationDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home_rounded),
+      label: 'Home',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.subject_outlined),
+      selectedIcon: Icon(Icons.subject_rounded),
+      label: 'Subjects',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.settings_outlined),
+      selectedIcon: Icon(Icons.settings_rounded),
+      label: 'Settings',
+    ),
+  ];
 
   void _onTabSelected(int index) {
     setState(() => _selectedIndex = index);
@@ -60,7 +80,6 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      extendBody: true,
       body: SafeArea(
         top: true,
         child: authState is AuthAuthenticated
@@ -74,46 +93,20 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                 ),
               ),
       ),
-      floatingActionButton: SafeArea(
-        top: false,
-        bottom: true,
-        child: FloatingActionButton(
-          onPressed: _showAddSubjectDialog,
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.add_rounded, size: 28),
-        ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddSubjectDialog,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add_rounded, size: 28),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: _buildGlassNavBar(),
-    );
-  }
-
-  Widget _buildGlassNavBar() {
-    final colorScheme = Theme.of(context).colorScheme;
-    return GlassNavBar(
-      selectedIndex: _selectedIndex,
-      onDestinationSelected: _onTabSelected,
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          selectedIcon: Icon(Icons.dashboard_rounded),
-          label: 'Home',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.subject_outlined),
-          selectedIcon: Icon(Icons.subject_rounded),
-          label: 'Subjects',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.settings_outlined),
-          selectedIcon: Icon(Icons.settings_rounded),
-          label: 'Settings',
-        ),
-      ],
-      isDark: Theme.of(context).brightness == Brightness.dark,
-      accentColor: colorScheme.primary,
+      bottomNavigationBar: AppBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onTabSelected,
+        destinations: _destinations,
+        accentColor: colorScheme.primary,
+      ),
     );
   }
 
@@ -199,56 +192,41 @@ class _AdminSubjectsPageState extends ConsumerState<AdminSubjectsPage> with Sing
                         DesignTokens.space6,
                         DesignTokens.space4,
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Subjects',
-                                  style: textTheme.headlineLarge?.copyWith(
-                                    color: colorScheme.onSurface,
-                                    fontWeight: FontWeight.w700,
+                      child: AppHeader(
+                        title: 'Subjects',
+                        subtitle: 'Manage your course subjects',
+                        showProfileMenu: true,
+                        actions: subjects.isNotEmpty
+                            ? [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: DesignTokens.space3,
+                                    vertical: DesignTokens.space1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.primary.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
+                                  ),
+                                  child: Text(
+                                    '${subjects.length} subject${subjects.length != 1 ? 's' : ''}',
+                                    style: textTheme.labelMedium?.copyWith(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: DesignTokens.space1),
-                                Text(
-                                  'Manage your course subjects',
-                                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (subjects.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: DesignTokens.space3,
-                                vertical: DesignTokens.space1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(DesignTokens.radiusPill),
-                              ),
-                              child: Text(
-                                '${subjects.length} subject${subjects.length != 1 ? 's' : ''}',
-                                style: textTheme.labelMedium?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                        ],
+                              ]
+                            : null,
                       ),
                     ),
                   ),
 
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(
+                    padding: EdgeInsets.fromLTRB(
                       DesignTokens.space6,
                       0,
                       DesignTokens.space6,
-                      DesignTokens.space6 + 120,
+                      DesignTokens.space6 + DesignTokens.bottomBarHeight,
                     ),
                     sliver: subjects.isEmpty
                         ? SliverFillRemaining(

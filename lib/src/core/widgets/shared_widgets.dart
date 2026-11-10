@@ -1602,7 +1602,7 @@ class KeyboardSafeDialog extends StatelessWidget {
 }
 
 /// ===========================================================================
-/// GLASS NAV BAR - Floating frosted glass navigation bar (image_9.png style)
+/// GLASS NAV BAR - Frozen glass navigation bar for bottomNavigationBar
 /// ===========================================================================
 class GlassNavBar extends StatefulWidget {
   final int selectedIndex;
@@ -1655,7 +1655,6 @@ class _GlassNavBarState extends State<GlassNavBar> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
     final accent = widget.accentColor ?? BrandColors.primary;
-    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     final itemCount = widget.destinations.length;
 
     // Glassmorphic colors
@@ -1664,60 +1663,54 @@ class _GlassNavBarState extends State<GlassNavBar> with SingleTickerProviderStat
         ? Colors.white.withValues(alpha: 0.12)
         : Colors.white.withValues(alpha: 0.6);
 
-    return SafeArea(
-      top: false,
-      bottom: true,
-      minimum: EdgeInsets.only(bottom: bottomInset),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + bottomInset),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(36),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: Container(
-              height: DesignTokens.bottomBarHeight,
-              decoration: BoxDecoration(
-                color: glassBgColor,
-                borderRadius: BorderRadius.circular(36),
-                border: Border.all(
-                  color: glassBorderColor,
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isDark
-                        ? Colors.black.withValues(alpha: 0.25)
-                        : Colors.black.withValues(alpha: 0.06),
-                    offset: const Offset(0, 6),
-                    blurRadius: 20,
-                    spreadRadius: 0,
-                  ),
-                  BoxShadow(
-                    color: isDark
-                        ? Colors.black.withValues(alpha: 0.1)
-                        : Colors.black.withValues(alpha: 0.03),
-                    offset: const Offset(0, 2),
-                    blurRadius: 6,
-                    spreadRadius: 0,
-                  ),
-                ],
-              ),
-              child: Row(
-                children: List.generate(itemCount, (index) {
-                  final destination = widget.destinations[index];
-                  final isSelected = index == widget.selectedIndex;
-                  return Expanded(
-                    child: _GlassNavBarItem(
-                      destination: destination,
-                      isSelected: isSelected,
-                      isDark: isDark,
-                      accentColor: accent,
-                      onTap: () => widget.onDestinationSelected(index),
-                    ),
-                  );
-                }),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          height: DesignTokens.bottomBarHeight,
+          decoration: BoxDecoration(
+            color: glassBgColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+            border: Border(
+              top: BorderSide(
+                color: glassBorderColor,
+                width: 1.2,
               ),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.25)
+                    : Colors.black.withValues(alpha: 0.06),
+                offset: const Offset(0, -4),
+                blurRadius: 20,
+                spreadRadius: 0,
+              ),
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.03),
+                offset: const Offset(0, -2),
+                blurRadius: 6,
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: Row(
+            children: List.generate(itemCount, (index) {
+              final destination = widget.destinations[index];
+              final isSelected = index == widget.selectedIndex;
+              return Expanded(
+                child: _GlassNavBarItem(
+                  destination: destination,
+                  isSelected: isSelected,
+                  isDark: isDark,
+                  accentColor: accent,
+                  onTap: () => widget.onDestinationSelected(index),
+                ),
+              );
+            }),
           ),
         ),
       ),

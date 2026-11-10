@@ -5,6 +5,8 @@ import '../../core/database/repositories.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/design_tokens.dart'
     show DesignTokens;
+import '../../core/widgets/app_bottom_nav_bar.dart';
+import '../../core/widgets/app_header.dart';
 import '../../core/widgets/shared_widgets.dart';
 import '../../features/auth/auth_provider.dart';
 
@@ -35,6 +37,24 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
     }
   }
 
+  static const List<NavigationDestination> _destinations = [
+    NavigationDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home_rounded),
+      label: 'Home',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.history_outlined),
+      selectedIcon: Icon(Icons.history_rounded),
+      label: 'My Records',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.person_outline),
+      selectedIcon: Icon(Icons.person_rounded),
+      label: 'Profile',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -44,7 +64,6 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      extendBody: true,
       body: session != null
           ? _buildRecordsContent(session, colorScheme, textTheme)
           : Center(
@@ -53,33 +72,12 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
                 style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ),
-      bottomNavigationBar: _buildGlassNavBar(colorScheme),
-    );
-  }
-
-  Widget _buildGlassNavBar(ColorScheme colorScheme) {
-    return GlassNavBar(
-      selectedIndex: _selectedIndex,
-      onDestinationSelected: _onTabSelected,
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home_rounded),
-          label: 'Home',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.history_outlined),
-          selectedIcon: Icon(Icons.history_rounded),
-          label: 'My Records',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person_rounded),
-          label: 'Profile',
-        ),
-      ],
-      isDark: Theme.of(context).brightness == Brightness.dark,
-      accentColor: colorScheme.primary,
+      bottomNavigationBar: AppBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onTabSelected,
+        destinations: _destinations,
+        accentColor: colorScheme.primary,
+      ),
     );
   }
 
@@ -89,7 +87,11 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
       child: Column(
         children: [
           // Header
-          _buildRecordsHeader(colorScheme, textTheme),
+          AppHeader(
+            title: 'My Records',
+            subtitle: 'View your attendance history',
+            showProfileMenu: true,
+          ),
           // Records list
           Expanded(
             child: FutureBuilder<List<Attendance>>(
@@ -132,11 +134,11 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
                   onRefresh: () async => setState(() {}),
                   color: colorScheme.primary,
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
+                    padding: EdgeInsets.fromLTRB(
                       DesignTokens.space6,
                       DesignTokens.space4,
                       DesignTokens.space6,
-                      DesignTokens.space6 + 100,
+                      DesignTokens.space6 + DesignTokens.bottomBarHeight,
                     ),
                     itemCount: filteredRecords.length,
                     separatorBuilder: (context, index) => const SizedBox(height: DesignTokens.space3),
@@ -182,41 +184,6 @@ class _StudentRecordsPageState extends ConsumerState<StudentRecordsPage> {
   String _formatTime(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  Widget _buildRecordsHeader(ColorScheme colorScheme, TextTheme textTheme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        DesignTokens.space5,
-        DesignTokens.space5,
-        DesignTokens.space5,
-        DesignTokens.space3,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'My Records',
-                  style: textTheme.headlineMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: DesignTokens.space1),
-                Text(
-                  'View your attendance history',
-                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildEmptyState(ColorScheme colorScheme, TextTheme textTheme) {

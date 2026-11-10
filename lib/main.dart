@@ -41,6 +41,12 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,
       routerConfig: ref.watch(routerProvider),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: MediaQuery.of(context).textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15),
+        ),
+        child: child!,
+      ),
     );
   }
 }
