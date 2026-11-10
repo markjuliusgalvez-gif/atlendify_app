@@ -1,8 +1,3 @@
-#contributors
-FRENALYN J. PABLAN
-MARK JULIUS GALVEZ
-
-
 # 📱 Atlendify - Smart Attendance Management
 
 A modern Flutter-based attendance tracking system for educators and administrators.
