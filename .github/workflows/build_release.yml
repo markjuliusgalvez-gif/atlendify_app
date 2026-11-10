@@ -1,0 +1,203 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.24.3'
+  JAVA_VERSION: '17'
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'gradle'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Verify Flutter
+        run: flutter doctor -v
+
+      - name: Build release APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 'latest-stable'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Configure Flutter iOS (config-only)
+        run: flutter build ios --config-only --no-codesign
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+
+      - name: Build unsigned iOS app
+        run: flutter build ios --release --no-codesign
+
+      - name: Create IPA
+        run: |
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -r atlendify-unsigned.ipa Payload
+
+      - name: Verify IPA output
+        run: |
+          echo "Checking for IPA files..."
+          ls -la build/ios/ipa/
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: atlendify-unsigned-ipa
+          path: build/ios/ipa/atlendify-unsigned.ipa
+          retention-days: 30
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-release-apk
+          path: artifacts/android
+
+      - name: Download iOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: atlendify-unsigned-ipa
+          path: artifacts/ios
+
+      - name: Rename APK
+        run: |
+          mv artifacts/android/app-release.apk artifacts/android/Atlendify-${{ github.ref_name }}.apk
+
+      - name: Rename IPA
+        run: |
+          mv artifacts/ios/atlendify-unsigned.ipa artifacts/ios/Atlendify-${{ github.ref_name }}-unsigned.ipa
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/android/Atlendify-${{ github.ref_name }}.apk
+            artifacts/ios/Atlendify-${{ github.ref_name }}-unsigned.ipa
+          tag_name: ${{ github.ref_name }}
+          name: Atlendify ${{ github.ref_name }} - Attendance Management System
+          body: |
+            # 📱 Atlendify - Smart Attendance Management
+
+            A modern Flutter-based attendance tracking system for educators and administrators.
+
+            ## ✨ Features
+
+            ### 🎯 Core Functionality
+            - **QR Code Scanning** - Embedded mobile scanner for instant attendance marking
+            - **Dynamic Student Registration** - Scan any student QR → auto-create profile → auto-enroll → mark attendance
+            - **Real-time Dashboard** - Live attendance table updates without manual refresh
+            - **Session Management** - Start/close sessions with automatic time tracking
+            - **Late/Present Detection** - Automatic status based on session timing rules
+
+            ### 📊 Reporting & Export
+            - **Professional PDF Reports** - Subject header, summary cards, session details, attendance table
+            - **Student Records** - Individual attendance history with status indicators
+            - **Admin Records** - Full oversight with filtering and search
+
+            ### 🎨 User Experience
+            - **Soft Blue Theme** - Modern, calm design with PlusJakartaSans typography
+            - **Light/Dark Mode** - System-aware theme switching
+            - **Smooth Animations** - Entrance, fade, and slide transitions
+            - **PIN Security** - Admin gate protection
+
+            ### 👥 Role-Based Access
+            - **Admin**: Subject management, session control, QR scanning, reports, settings
+            - **Student**: Profile view, personal attendance records
+
+            ## 📦 Downloads
+
+            | Platform | File | Install |
+            |----------|------|---------|
+            | **Android** | `Atlendify-${{ github.ref_name }}.apk` | Enable "Unknown sources" → Install |
+            | **iOS** | `Atlendify-${{ github.ref_name }}-unsigned.ipa` | Install via TestFlight or AltStore (unsigned) |
+
+            ## 🚀 Quick Start
+
+            1. **Admin**: Login → Enter PIN → Manage Subjects → Start Session → Scan QR codes
+            2. **Student**: Register → Auto-enroll via QR scan → View attendance in profile
+            3. **Export**: Open Subject → Tap Export → Share/Print PDF report
+
+            ## 🛠 Tech Stack
+
+            - **Framework**: Flutter 3.24 + Dart
+            - **Navigation**: GoRouter
+            - **State**: Riverpod
+            - **Database**: SQLite (sqflite) with Repository pattern
+            - **QR Scanning**: mobile_scanner
+            - **PDF**: pdf + printing packages
+            - **Architecture**: Feature-first, clean separation
+
+            ## 📱 Platform Support
+
+            - ✅ **Android** (API 21+) - APK included
+            - ✅ **iOS** (13+) - Unsigned IPA built on macOS runners
+            - 🌐 **Web** - Compatible (not in this release)
+            - 💻 **Desktop** - Compatible (not in this release)
+
+            ---
+
+            **Built with ❤️ for educators everywhere**
+
+            *Report issues: https://github.com/markjuliusgalvez-gif/atlendify_app/issues*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
